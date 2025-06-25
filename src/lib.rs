@@ -534,14 +534,18 @@ fn is_global_this(a: &str) -> bool {
 }
 impl VisitMut for Inliner {
     fn visit_mut_expr(&mut self, node: &mut Expr) {
-        fn go(a: &Expr) -> bool {
+        fn go(c: &ConstCollector, a: &Expr) -> bool {
             match a {
-                Expr::Ident(_) | Expr::Lit(_) => true,
+                Expr::Ident(i) => {
+                    (is_global_this(&i.sym) && i.ctxt == Default::default())
+                        || c.map.contains_key(&i.to_id())
+                }
+                Expr::Lit(_) => true,
                 Expr::Member(m) => {
-                    go(&m.obj)
+                    go(c, &m.obj)
                         && match &m.prop {
                             MemberProp::Ident(_) => true,
-                            MemberProp::Computed(c) => go(&c.expr),
+                            MemberProp::Computed(c2) => go(c, &c2.expr),
                             MemberProp::PrivateName(_) => false,
                         }
                 }
@@ -589,7 +593,7 @@ impl VisitMut for Inliner {
             }
             if let Expr::Ident(i) = node {
                 if let Some(c) = self.inner.map.get(&i.to_id()) {
-                    if go(&**c) {
+                    if go(&self.inner, &**c) {
                         *node = (&**c).clone();
                         continue;
                     }
