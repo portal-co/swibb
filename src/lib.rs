@@ -135,8 +135,59 @@ impl VisitMut for CondWrapping {
 #[non_exhaustive]
 pub struct CondFolding {
     pub fold_stmts: bool,
+    pub idents: BTreeSet<Id>,
 }
 impl VisitMut for CondFolding {
+    fn visit_mut_stmts(&mut self, node: &mut Vec<Stmt>) {
+        let old = take(&mut self.idents);
+        node.visit_mut_children_with(self);
+        let new = replace(&mut self.idents, old);
+        for new in new.into_iter() {
+            node.insert(
+                0,
+                Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                    span: Span::dummy_with_cmt(),
+                    ctxt: new.1,
+                    kind: swc_ecma_ast::VarDeclKind::Var,
+                    declare: true,
+                    decls: vec![VarDeclarator {
+                        span: Span::dummy_with_cmt(),
+                        name: Pat::Ident(BindingIdent {
+                            id: Ident::new(new.0, Span::dummy_with_cmt(), new.1),
+                            type_ann: None,
+                        }),
+                        init: None,
+                        definite: false,
+                    }],
+                }))),
+            );
+        }
+    }
+    fn visit_mut_module(&mut self, node: &mut swc_ecma_ast::Module) {
+        let old = take(&mut self.idents);
+        node.visit_mut_children_with(self);
+        let new = replace(&mut self.idents, old);
+        for new in new.into_iter() {
+            node.body.insert(
+                0,
+                swc_ecma_ast::ModuleItem::Stmt(Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                    span: node.span,
+                    ctxt: new.1,
+                    kind: swc_ecma_ast::VarDeclKind::Var,
+                    declare: true,
+                    decls: vec![VarDeclarator {
+                        span: node.span,
+                        name: Pat::Ident(BindingIdent {
+                            id: Ident::new(new.0, node.span, new.1),
+                            type_ann: None,
+                        }),
+                        init: None,
+                        definite: false,
+                    }],
+                })))),
+            );
+        }
+    }
     fn visit_mut_stmt(&mut self, node: &mut Stmt) {
         let mut should_continue = true;
         while take(&mut should_continue) {
@@ -313,20 +364,53 @@ impl VisitMut for CondFolding {
                     let Expr::Cond(conditional_expression) = *binary_expression.right else {
                         unreachable!()
                     };
+                    let id = (
+                        Atom::new("left"),
+                        SyntaxContext::empty().apply_mark(Mark::new()),
+                    );
+                    self.idents.insert(id.clone());
                     Expr::Cond(CondExpr {
                         span: conditional_expression.span,
-                        test: conditional_expression.test,
+                        test: Box::new(Expr::Seq(SeqExpr {
+                            span: conditional_expression.span,
+                            exprs: vec![
+                                Box::new(Expr::Assign(AssignExpr {
+                                    span: conditional_expression.span,
+                                    op: AssignOp::Assign,
+                                    left: AssignTarget::Simple(SimpleAssignTarget::Ident(
+                                        BindingIdent {
+                                            id: Ident::new(
+                                                id.0.clone(),
+                                                conditional_expression.span,
+                                                id.1,
+                                            ),
+                                            type_ann: None,
+                                        },
+                                    )),
+                                    right: binary_expression.left,
+                                })),
+                                conditional_expression.test,
+                            ],
+                        })),
                         cons: Box::new(Expr::Bin(BinExpr {
                             span: binary_expression.span,
                             op: binary_expression.op,
                             right: conditional_expression.cons,
-                            left: binary_expression.left.clone(),
+                            left: Box::new(Expr::Ident(Ident::new(
+                                id.0.clone(),
+                                conditional_expression.span,
+                                id.1,
+                            ))),
                         })),
                         alt: Box::new(Expr::Bin(BinExpr {
                             span: binary_expression.span,
                             op: binary_expression.op,
                             right: conditional_expression.alt,
-                            left: binary_expression.left,
+                            left: Box::new(Expr::Ident(Ident::new(
+                                id.0.clone(),
+                                conditional_expression.span,
+                                id.1,
+                            ))),
                         })),
                     })
                 }
@@ -355,6 +439,88 @@ impl VisitMut for CondFolding {
                             op: assign_expression.op,
                             left: assign_expression.left,
                             right: conditional_expression.alt,
+                        })),
+                    })
+                }
+                Expr::Member(m) if m.obj.is_cond() => {
+                    cont = true;
+                    let Expr::Cond(conditional_expression) = *m.obj else {
+                        unreachable!()
+                    };
+                    Expr::Cond(CondExpr {
+                        span: conditional_expression.span,
+                        test: conditional_expression.test,
+                        cons: Box::new(Expr::Member(MemberExpr {
+                            span: m.span,
+                            obj: conditional_expression.cons,
+                            prop: m.prop.clone(),
+                        })),
+                        alt: Box::new(Expr::Member(MemberExpr {
+                            span: m.span,
+                            obj: conditional_expression.alt,
+                            prop: m.prop,
+                        })),
+                    })
+                }
+                Expr::Member(m) if m.prop.as_computed().is_some_and(|a| a.expr.is_cond()) => {
+                    cont = true;
+                    let MemberProp::Computed(p) = m.prop else {
+                        unreachable!()
+                    };
+                    let Expr::Cond(conditional_expression) = *p.expr else {
+                        unreachable!()
+                    };
+                    let id = (
+                        Atom::new("object"),
+                        SyntaxContext::empty().apply_mark(Mark::new()),
+                    );
+                    self.idents.insert(id.clone());
+                    Expr::Cond(CondExpr {
+                        span: conditional_expression.span,
+                        test: Box::new(Expr::Seq(SeqExpr {
+                            span: conditional_expression.span,
+                            exprs: vec![
+                                Box::new(Expr::Assign(AssignExpr {
+                                    span: conditional_expression.span,
+                                    op: AssignOp::Assign,
+                                    left: AssignTarget::Simple(SimpleAssignTarget::Ident(
+                                        BindingIdent {
+                                            id: Ident::new(
+                                                id.0.clone(),
+                                                conditional_expression.span,
+                                                id.1,
+                                            ),
+                                            type_ann: None,
+                                        },
+                                    )),
+                                    right: m.obj,
+                                })),
+                                conditional_expression.test,
+                            ],
+                        })),
+                        cons: Box::new(Expr::Member(MemberExpr {
+                            span: m.span,
+                            obj: Box::new(Expr::Ident(Ident::new(
+                                id.0.clone(),
+                                conditional_expression.span,
+                                id.1,
+                            ))),
+                            prop: MemberProp::Computed(ComputedPropName {
+                                span: m.span,
+                                expr: conditional_expression.cons,
+                            }),
+                        })),
+                        alt: Box::new(Expr::Member(MemberExpr {
+                            span: m.span,
+                            obj: Box::new(Expr::Ident(Ident::new(
+                                id.0.clone(),
+                                conditional_expression.span,
+                                id.1,
+                            ))),
+                            prop: MemberProp::Computed(ComputedPropName {
+                                span: m.span,
+                                expr: conditional_expression.alt,
+                            }),
                         })),
                     })
                 }
@@ -523,6 +689,7 @@ pub struct InlineFlags {
     pub tilde: bool,
     pub canon: Option<Atom>,
     pub global_this_inlining: bool,
+    pub global_fetching: bool,
 }
 pub struct Inliner {
     inner: ConstCollector,
@@ -557,10 +724,15 @@ impl VisitMut for Inliner {
         }
         loop {
             if let Expr::Member(m) = node {
-                if let Expr::Ident(i) = &*m.obj {
+                if let Expr::Ident(i) = &mut *m.obj {
                     if is_global_this(&i.sym) && i.ctxt == Default::default() {
                         if let MemberProp::Ident(j) = &m.prop {
                             if is_global_this(&j.sym) {
+                                *node = take(&mut m.obj);
+                                continue;
+                            }
+                            if self.flags.global_fetching {
+                                i.sym = j.sym.clone();
                                 *node = take(&mut m.obj);
                                 continue;
                             }
