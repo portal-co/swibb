@@ -540,7 +540,7 @@ impl VisitMut for Inliner {
                 Expr::Ident(i) => {
                     (is_global_this(&i.sym)
                         && i.ctxt == Default::default()
-                        && flags.global_this_inlining)
+                        && (flags.global_this_inlining))
                         || c.map.contains_key(&i.to_id())
                 }
                 Expr::Lit(_) => true,
