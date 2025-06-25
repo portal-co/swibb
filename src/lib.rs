@@ -6,10 +6,10 @@ use std::{
 // use base64::Engine;
 use swc_atoms::Atom;
 use swc_common::{
+    FileName, SourceFile, SourceMap, Span, Spanned,
     errors::{ColorConfig, Handler},
     input::StringInput,
     sync::Lrc,
-    FileName, SourceFile, SourceMap, Span, Spanned,
 };
 use swc_common::{Mark, SyntaxContext};
 use swc_ecma_ast::{
@@ -90,7 +90,7 @@ impl Idempotency for AssignTarget {
         }
     }
 }
-struct CondWrapping{}
+struct CondWrapping {}
 impl VisitMut for CondWrapping {
     fn visit_mut_expr(&mut self, node: &mut Expr) {
         *node = match take(node) {
@@ -161,7 +161,9 @@ impl VisitMut for CondFolding {
                             }))),
                         })
                     }
-                    Stmt::Return(return_stmt) if return_stmt.arg.as_ref().is_some_and(|arg| arg.is_cond()) => {
+                    Stmt::Return(return_stmt)
+                        if return_stmt.arg.as_ref().is_some_and(|arg| arg.is_cond()) =>
+                    {
                         should_continue = true;
                         let Expr::Cond(c) = *return_stmt.arg.unwrap() else {
                             unreachable!()
@@ -225,7 +227,9 @@ impl VisitMut for CondFolding {
                         cont = true;
                         Expr::Seq(sequence_expression)
                     }
-                    Expr::Bin(binary_expression) if matches!(binary_expression.op, BinaryOp::LogicalAnd) => {
+                    Expr::Bin(binary_expression)
+                        if matches!(binary_expression.op, BinaryOp::LogicalAnd) =>
+                    {
                         cont = true;
                         Expr::Cond(CondExpr {
                             span,
@@ -239,7 +243,9 @@ impl VisitMut for CondFolding {
                             alt,
                         })
                     }
-                    Expr::Bin(binary_expression) if matches!(binary_expression.op, BinaryOp::LogicalOr) => {
+                    Expr::Bin(binary_expression)
+                        if matches!(binary_expression.op, BinaryOp::LogicalOr) =>
+                    {
                         cont = true;
                         Expr::Cond(CondExpr {
                             span,
@@ -253,7 +259,9 @@ impl VisitMut for CondFolding {
                             })),
                         })
                     }
-                    Expr::Unary(unary_expression) if matches!(unary_expression.op, UnaryOp::Bang) => {
+                    Expr::Unary(unary_expression)
+                        if matches!(unary_expression.op, UnaryOp::Bang) =>
+                    {
                         cont = true;
                         Expr::Cond(CondExpr {
                             span,
@@ -540,6 +548,11 @@ impl VisitMut for Inliner {
             break;
         }
         node.visit_mut_children_with(self);
+    }
+}
+impl ConstCollector {
+    pub fn to_inliner(self) -> Inliner {
+        Inliner { inner: self }
     }
 }
 pub struct Cleanse {}
