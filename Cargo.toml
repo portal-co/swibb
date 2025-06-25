@@ -3,7 +3,7 @@ name = "portal-solutions-swibb"
 version = "0.2.2"
 edition = "2024"
 license = "MPL-2.0"
-description = "Utilities for rewriting JS for Weevy and Jsaw"
+description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, and other JS processing tools"
 
 [dependencies]
 swc_atoms = "^6.0.0"
