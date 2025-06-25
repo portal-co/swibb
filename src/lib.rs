@@ -517,8 +517,20 @@ impl VisitMut for ConstCollector {
         }
     }
 }
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug, Hash)]
+#[non_exhaustive]
+pub struct InlineFlags {
+    pub tilde: bool,
+    pub canon: Option<Atom>,
+}
 pub struct Inliner {
     inner: ConstCollector,
+    flags: InlineFlags,
+}
+fn is_global_this(a: &str) -> bool {
+    return ["globalThis", "window", "self", "global"]
+        .into_iter()
+        .any(|b| a == b);
 }
 impl VisitMut for Inliner {
     fn visit_mut_expr(&mut self, node: &mut Expr) {
@@ -537,11 +549,57 @@ impl VisitMut for Inliner {
             }
         }
         loop {
+            if let Expr::Member(m) = node {
+                if let Expr::Ident(i) = &*m.obj {
+                    if is_global_this(&i.sym) && i.ctxt == Default::default() {
+                        if let MemberProp::Ident(j) = &m.prop {
+                            if is_global_this(&j.sym) {
+                                *node = take(&mut m.obj);
+                                continue;
+                            }
+                        }
+                        if let MemberProp::Computed(c) = &m.prop {
+                            if let Expr::Lit(Lit::Str(s)) = &*c.expr {
+                                if is_global_this(&s.value) {
+                                    *node = take(&mut m.obj);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Expr::Bin(b) = node {
+                if b.op == BinaryOp::NullishCoalescing {
+                    if let Expr::Member(m) = &*b.left {
+                        if let Expr::Ident(i) = &*m.obj {
+                            if is_global_this(&i.sym) && i.ctxt == Default::default() {
+                                if let MemberProp::Computed(c) = &m.prop {
+                                    if let Expr::Lit(Lit::Str(s)) = &*c.expr {
+                                        if self.flags.tilde && s.value.starts_with("~") {
+                                            *node = take(&mut *b.left);
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if let Expr::Ident(i) = node {
                 if let Some(c) = self.inner.map.get(&i.to_id()) {
                     if go(&**c) {
                         *node = (&**c).clone();
                         continue;
+                    }
+                }
+                if is_global_this(&i.sym) && i.ctxt == Default::default() {
+                    if let Some(c) = self.flags.canon.as_ref() {
+                        if is_global_this(c) && c != &i.sym {
+                            i.sym = c.clone();
+                            continue;
+                        }
                     }
                 }
             }
@@ -551,9 +609,21 @@ impl VisitMut for Inliner {
     }
 }
 impl ConstCollector {
-    pub fn to_inliner(self) -> Inliner {
-        Inliner { inner: self }
+    pub fn to_inliner(self, flags: InlineFlags) -> Inliner {
+        Inliner { inner: self, flags }
     }
+}
+pub trait CollectConstsAndInline: VisitMutWith<ConstCollector> + VisitMutWith<Inliner> {
+    fn collet_consts_and_linine(&mut self, flags: InlineFlags) {
+        let mut c = ConstCollector::default();
+        self.visit_mut_with(&mut c);
+        let mut c = c.to_inliner(flags);
+        self.visit_mut_with(&mut c);
+    }
+}
+impl<T: VisitMutWith<ConstCollector> + VisitMutWith<Inliner> + ?Sized> CollectConstsAndInline
+    for T
+{
 }
 pub struct Cleanse {}
 impl VisitMut for Cleanse {
