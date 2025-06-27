@@ -15,15 +15,16 @@ use swc_common::{Mark, SyntaxContext};
 use swc_ecma_ast::{
     ArrowExpr, AssignExpr, AssignOp, AssignPat, AssignTarget, AssignTargetPat, BinExpr, BinaryOp,
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, ComputedPropName, CondExpr, Decl,
-    Expr, ExprStmt, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, Pat, ReturnStmt, SeqExpr,
-    SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr, UnaryOp, VarDecl, VarDeclKind,
-    VarDeclarator,
+    Expr, ExprStmt, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, ModuleItem, Pat, Program,
+    ReturnStmt, SeqExpr, SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr, UnaryOp, VarDecl,
+    VarDeclKind, VarDeclarator,
 };
 use swc_ecma_parser::{Lexer, Parser, Syntax};
 use swc_ecma_transforms_optimization::simplify::const_propagation::constant_propagation;
 use swc_ecma_visit::{VisitMut, VisitMutWith};
 pub mod folding;
-pub use folding::{CondFolding,ArrowCallPack};
+pub mod consts;
+pub use folding::{ArrowCallPack, CondFolding};
 pub struct SyntaxContextToMark {
     root: Mark,
     map: HashMap<(Mark, Mark), Mark>,
@@ -50,6 +51,8 @@ impl SyntaxContextToMark {
 }
 // pub mod brighten;
 pub use brighten::*;
+
+pub use crate::consts::ConstCollector;
 pub mod brighten;
 pub trait Idempotency {
     fn idempotent(&self) -> bool;
@@ -133,26 +136,9 @@ impl VisitMut for CondWrapping {
         node.visit_mut_children_with(self);
     }
 }
-#[derive(Default)]
-#[non_exhaustive]
-pub struct ConstCollector {
-    pub map: BTreeMap<Id, Box<Expr>>,
-}
-impl VisitMut for ConstCollector {
-    fn visit_mut_var_decl(&mut self, node: &mut VarDecl) {
-        node.visit_mut_children_with(self);
-        let VarDeclKind::Const = node.kind else {
-            return;
-        };
-        for d in node.decls.iter() {
-            if let Pat::Ident(i) = &d.name {
-                if let Some(e) = d.init.as_ref() {
-                    self.map.insert(i.to_id(), e.clone());
-                }
-            }
-        }
-    }
-}
+
+
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug, Hash)]
 #[non_exhaustive]
 pub struct InlineFlags {
@@ -260,6 +246,51 @@ impl VisitMut for Inliner {
 impl ConstCollector {
     pub fn to_inliner(self, flags: InlineFlags) -> Inliner {
         Inliner { inner: self, flags }
+    }
+    pub fn is_weak_map(&self, id: &Id) -> bool {
+        return self.map.get(id).is_some_and(|m| {
+            m.as_new().is_some_and(|n| {
+                n.args.as_ref().is_none_or(|a| a.len() == 0)
+                    && n.callee.as_ident().is_some_and(|i| {
+                        i.to_id() == (Atom::new("WeakMap"), SyntaxContext::default())
+                    })
+            })
+        });
+    }
+    pub fn weak_maps(&self, x: &Program) -> BTreeSet<Id> {
+        match x {
+            Program::Module(module) => module
+                .body
+                .iter()
+                .filter_map(|a| a.as_stmt())
+                .filter_map(|a| a.as_decl())
+                .flat_map(|d| match d {
+                    Decl::Var(v) => v
+                        .decls
+                        .iter()
+                        .filter_map(|a| a.name.as_ident())
+                        .map(|a| a.to_id())
+                        .filter(|a| self.is_weak_map(&a))
+                        .collect(),
+                    _ => BTreeSet::default(),
+                })
+                .collect(),
+            Program::Script(script) => script
+                .body
+                .iter()
+                .filter_map(|a| a.as_decl())
+                .flat_map(|d| match d {
+                    Decl::Var(v) => v
+                        .decls
+                        .iter()
+                        .filter_map(|a| a.name.as_ident())
+                        .map(|a| a.to_id())
+                        .filter(|a| self.is_weak_map(&a))
+                        .collect(),
+                    _ => BTreeSet::default(),
+                })
+                .collect(),
+        }
     }
 }
 pub trait CollectConstsAndInline: VisitMutWith<ConstCollector> + VisitMutWith<Inliner> {
