@@ -1,3 +1,5 @@
+use swc_ecma_ast::FnExpr;
+
 use crate::*;
 #[derive(Default)]
 #[non_exhaustive]
@@ -51,6 +53,16 @@ pub struct ConstCollector {
     pub map: BTreeMap<Id, Box<Expr>>,
 }
 impl VisitMut for ConstCollector {
+    fn visit_mut_fn_decl(&mut self, node: &mut swc_ecma_ast::FnDecl) {
+        node.visit_mut_children_with(self);
+        self.map.insert(
+            node.ident.to_id(),
+            Box::new(Expr::Fn(FnExpr {
+                ident: Some(node.ident.clone()),
+                function: node.function.clone(),
+            })),
+        );
+    }
     fn visit_mut_var_decl(&mut self, node: &mut VarDecl) {
         node.visit_mut_children_with(self);
         let VarDeclKind::Const = node.kind else {
