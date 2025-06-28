@@ -3,8 +3,8 @@ use swc_ecma_ast::{ExprOrSpread, FnExpr, Function, IdentName, Param, RestPat, Th
 use crate::*;
 #[derive(Default)]
 #[non_exhaustive]
-pub struct ThisWrap {}
-impl VisitMut for ThisWrap {
+pub struct WrapCallsInTrap {}
+impl VisitMut for WrapCallsInTrap {
     fn visit_mut_call_expr(&mut self, node: &mut CallExpr) {
         node.visit_mut_children_with(self);
         if let Callee::Expr(e) = &mut node.callee {
