@@ -24,6 +24,8 @@ use swc_ecma_transforms_optimization::simplify::const_propagation::constant_prop
 use swc_ecma_visit::{VisitMut, VisitMutWith};
 pub mod folding;
 pub mod consts;
+pub mod stupify;
+pub mod brighten;
 pub use folding::{ArrowCallPack, CondFolding};
 pub struct SyntaxContextToMark {
     root: Mark,
@@ -53,7 +55,7 @@ impl SyntaxContextToMark {
 pub use brighten::*;
 
 pub use crate::consts::ConstCollector;
-pub mod brighten;
+
 pub trait Idempotency {
     fn idempotent(&self) -> bool;
 }

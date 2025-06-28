@@ -3,9 +3,26 @@ name = "portal-solutions-swibb"
 version = "0.2.4"
 edition = "2024"
 license = "MPL-2.0"
-description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, and other JS processing tools"
+description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, DumbJS, and other JS processing tools"
+
+
+
+
 
 [dependencies]
+swc_atoms.workspace = true
+swc_common.workspace = true
+swc_ecma_ast.workspace = true
+swc_ecma_parser.workspace = true
+swc_ecma_transforms_optimization.workspace = true
+swc_ecma_visit.workspace = true
+
+[workspace]
+members=["."]
+resolver="3"
+
+[workspace.dependencies]
+
 swc_atoms = "^6.0.0"
 swc_common = "^13.0.0"
 swc_ecma_ast = "^13.0.0"
