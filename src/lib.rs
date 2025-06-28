@@ -26,6 +26,8 @@ pub mod folding;
 pub mod consts;
 pub mod stupify;
 pub mod brighten;
+#[cfg(feature = "test")]
+pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
 pub struct SyntaxContextToMark {
     root: Mark,
