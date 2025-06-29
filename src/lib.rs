@@ -15,17 +15,18 @@ use swc_common::{Mark, SyntaxContext};
 use swc_ecma_ast::{
     ArrowExpr, AssignExpr, AssignOp, AssignPat, AssignTarget, AssignTargetPat, BinExpr, BinaryOp,
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, ComputedPropName, CondExpr, Decl,
-    Expr, ExprStmt, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, ModuleItem, Pat, Program,
-    ReturnStmt, SeqExpr, SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr, UnaryOp, VarDecl,
-    VarDeclKind, VarDeclarator,
+    Expr, ExprStmt, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, Module, ModuleItem, Pat,
+    Program, ReturnStmt, SeqExpr, SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr, UnaryOp,
+    VarDecl, VarDeclKind, VarDeclarator,
 };
 use swc_ecma_parser::{Lexer, Parser, Syntax};
+use swc_ecma_transforms_base::rename::Renamer;
 use swc_ecma_transforms_optimization::simplify::const_propagation::constant_propagation;
 use swc_ecma_visit::{VisitMut, VisitMutWith};
-pub mod folding;
-pub mod consts;
-pub mod stupify;
 pub mod brighten;
+pub mod consts;
+pub mod folding;
+pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
@@ -140,8 +141,6 @@ impl VisitMut for CondWrapping {
         node.visit_mut_children_with(self);
     }
 }
-
-
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug, Hash)]
 #[non_exhaustive]
@@ -356,4 +355,75 @@ impl VisitMut for Cleanse {
             take(node);
         }
     }
+}
+#[derive(Default)]
+#[non_exhaustive]
+pub struct ManglingRenamer {
+    #[cfg(feature = "encoding")]
+    pub encode: bool,
+}
+impl Renamer for ManglingRenamer {
+    const RESET_N: bool = true;
+
+    const MANGLE: bool = false;
+
+    fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
+        *n += 1;
+
+        #[cfg(not(feature = "encoding"))]
+        fn encode(this: &ManglingRenamer, a: String) -> String {
+            a
+        }
+
+        #[cfg(feature = "encoding")]
+        fn encode(this: &ManglingRenamer, a: String) -> String {
+            if a.len() > 19 && this.encode {
+                format!(
+                    "_$h{}",
+                    ::hex::encode(&<::sha3::Sha3_256 as ::sha3::Digest>::digest(&a)[..8])
+                )
+            } else {
+                a
+            }
+        }
+
+        Atom::new(
+            match if orig.1 == SyntaxContext::empty() && !(orig.0.starts_with("_$")) {
+                format!("{}", &orig.0)
+            } else {
+                encode(
+                    self,
+                    format!("_${}_${}", SyntaxContext::as_u32(orig.1), &orig.0),
+                )
+            } {
+                a => a,
+            },
+        )
+    }
+}
+#[derive(Default)]
+#[non_exhaustive]
+pub struct StripContext {}
+impl VisitMut for StripContext {
+    fn visit_mut_syntax_context(&mut self, node: &mut swc_common::SyntaxContext) {
+        *node = Default::default();
+    }
+}
+pub fn reresolve(
+    module: &mut Module,
+    mangle: ManglingRenamer,
+    mut strip: StripContext,
+    unresolved_mark: Mark,
+    top_level_mark: Mark,
+) {
+    module.visit_mut_with(&mut swc_ecma_transforms_base::rename::renamer(
+        Default::default(),
+        mangle,
+    ));
+    module.visit_mut_with(&mut strip);
+    module.visit_mut_with(&mut swc_ecma_transforms_base::resolver(
+        unresolved_mark,
+        top_level_mark,
+        false,
+    ));
 }

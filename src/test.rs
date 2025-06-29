@@ -36,13 +36,18 @@ pub fn test_load(cm: &Lrc<SourceMap>, testname: &str, fm: &str) -> Module {
         e.into_diagnostic(&handler).emit();
     }
 
-    let module = parser
+    let mut module = parser
         .parse_module()
         .map_err(|mut e| {
             // Unrecoverable fatal error occurred
             e.into_diagnostic(&handler).emit()
         })
         .expect("failed to parser module");
+    module.visit_mut_with(&mut swc_ecma_transforms_base::resolver(
+        Mark::root(),
+        Mark::new(),
+        false,
+    ));
     return module;
 }
 #[doc(hidden)]
