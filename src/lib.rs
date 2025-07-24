@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     mem::{replace, take},
+    sync::Mutex,
 };
 
 // use base64::Engine;
@@ -27,6 +28,7 @@ pub mod brighten;
 pub mod consts;
 pub mod folding;
 pub mod stupify;
+pub mod member_stuffs;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
@@ -356,6 +358,59 @@ impl VisitMut for Cleanse {
         }
     }
 }
+#[non_exhaustive]
+pub struct Garbler<R> {
+    pub rng: Mutex<R>,
+    cache: Mutex<BTreeMap<Id, Atom>>,
+}
+impl<R> Garbler<R> {
+    pub fn new(rng: R) -> Self {
+        Self {
+            rng: Mutex::new(rng),
+            cache: Default::default(),
+        }
+    }
+}
+#[cfg(feature = "rand")]
+const _: () = {
+    use rand::Rng;
+    use rand::distr::SampleString;
+
+    impl<'a, R: Rng> Renamer for &'a Garbler<R> {
+        const RESET_N: bool = true;
+
+        const MANGLE: bool = true;
+
+        fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
+            Renamer::new_name_for(&**self, orig, n)
+        }
+        
+        type Target = Atom;
+    }
+    impl<R: Rng> Renamer for Garbler<R> {
+        const RESET_N: bool = true;
+
+        const MANGLE: bool = true;
+
+        fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
+            *n += 1;
+            use rand::distr::Alphabetic;
+
+            return self
+                .cache
+                .lock()
+                .unwrap()
+                .entry(orig.clone())
+                .or_insert_with(|| {
+                    let mut rng = self.rng.lock().unwrap();
+                    Atom::new(Alphabetic.sample_string(&mut *rng, 4))
+                })
+                .clone();
+        }
+        
+      type Target = Atom;
+    }
+};
 #[derive(Default)]
 #[non_exhaustive]
 pub struct ManglingRenamer {
@@ -366,6 +421,7 @@ impl Renamer for ManglingRenamer {
     const RESET_N: bool = true;
 
     const MANGLE: bool = false;
+    type Target = Atom;
 
     fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
         *n += 1;
