@@ -67,6 +67,11 @@ impl Purity for Expr {
     fn is_pure(&self) -> bool {
         match self {
             Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) | Expr::Arrow(_) => true,
+            Expr::Member(m) => match &m.prop {
+                MemberProp::PrivateName(_) => m.obj.is_pure(),
+                _ => false,
+            },
+            Expr::Cond(c) => [&c.test, &c.alt, &c.cons].into_iter().all(|a| a.is_pure()),
             _ => false,
         }
     }
@@ -93,6 +98,13 @@ impl Idempotency for Expr {
                 left,
                 right,
             }) => *op == AssignOp::Assign && left.idempotent() && right.idempotent(),
+            Expr::Member(m) => match &m.prop {
+                MemberProp::PrivateName(_) => m.obj.idempotent(),
+                _ => false,
+            },
+            Expr::Cond(c) => [&c.test, &c.alt, &c.cons]
+                .into_iter()
+                .all(|a| a.idempotent()),
             _ => self.is_pure(),
         }
     }
