@@ -1,10 +1,19 @@
-use crate::*;
+use swc_common::EqIgnoreSpan;
 
+use crate::*;
+#[derive(Default)]
+#[non_exhaustive]
+pub enum Mode {
+    #[default]
+    Extract,
+    Simplify,
+}
 #[derive(Default)]
 #[non_exhaustive]
 pub struct CondFolding {
     pub fold_stmts: bool,
     pub idents: BTreeSet<Id>,
+    pub mode: Mode,
 }
 impl VisitMut for CondFolding {
     fn visit_mut_stmts(&mut self, node: &mut Vec<Stmt>) {
@@ -198,6 +207,23 @@ impl VisitMut for CondFolding {
                         }
                     }
                     test => match (*cons, *alt) {
+                        (Expr::Assign(a), Expr::Assign(b))
+                            if !(matches!(&self.mode, Mode::Extract))
+                                && a.left.eq_ignore_span(&b.left)
+                                && a.op == b.op =>
+                        {
+                            Expr::Assign(AssignExpr {
+                                span: a.span,
+                                op: a.op,
+                                left: a.left,
+                                right: Box::new(Expr::Cond(CondExpr {
+                                    span,
+                                    test: Box::new(test),
+                                    cons: a.right,
+                                    alt: b.right,
+                                })),
+                            })
+                        }
                         (cons, alt) => Expr::Cond(CondExpr {
                             span,
                             test: Box::new(test),
@@ -288,7 +314,8 @@ impl VisitMut for CondFolding {
                         && match assign_expression.left {
                             AssignTarget::Simple(SimpleAssignTarget::Ident(_)) => true,
                             _ => false,
-                        } =>
+                        }
+                        && matches!(&self.mode, Mode::Extract) =>
                 {
                     cont = true;
                     let Expr::Cond(conditional_expression) = *assign_expression.right else {
