@@ -27,8 +27,8 @@ use swc_ecma_visit::{VisitMut, VisitMutWith};
 pub mod brighten;
 pub mod consts;
 pub mod folding;
-pub mod stupify;
 pub mod member_stuffs;
+pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
@@ -60,7 +60,22 @@ impl SyntaxContextToMark {
 pub use brighten::*;
 
 pub use crate::consts::ConstCollector;
-
+pub trait Purity: Idempotency {
+    fn is_pure(&self) -> bool;
+}
+impl Purity for Expr {
+    fn is_pure(&self) -> bool {
+        match self {
+            Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) => true,
+            _ => false,
+        }
+    }
+}
+impl<T: Purity> Purity for Box<T> {
+    fn is_pure(&self) -> bool {
+        (&**self).is_pure()
+    }
+}
 pub trait Idempotency {
     fn idempotent(&self) -> bool;
 }
@@ -384,7 +399,7 @@ const _: () = {
         fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
             Renamer::new_name_for(&**self, orig, n)
         }
-        
+
         type Target = Atom;
     }
     impl<R: Rng> Renamer for Garbler<R> {
@@ -407,8 +422,8 @@ const _: () = {
                 })
                 .clone();
         }
-        
-      type Target = Atom;
+
+        type Target = Atom;
     }
 };
 #[derive(Default)]
