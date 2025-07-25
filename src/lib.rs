@@ -87,14 +87,13 @@ impl<T: Idempotency> Idempotency for Box<T> {
 impl Idempotency for Expr {
     fn idempotent(&self) -> bool {
         match self {
-            Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) => true,
             Expr::Assign(AssignExpr {
                 span,
                 op,
                 left,
                 right,
             }) => *op == AssignOp::Assign && left.idempotent() && right.idempotent(),
-            _ => false,
+            _ => self.is_pure(),
         }
     }
 }
