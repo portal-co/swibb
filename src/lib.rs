@@ -66,7 +66,7 @@ pub trait Purity: Idempotency {
 impl Purity for Expr {
     fn is_pure(&self) -> bool {
         match self {
-            Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) => true,
+            Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) | Expr::Arrow(_) => true,
             _ => false,
         }
     }
