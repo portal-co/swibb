@@ -1,4 +1,5 @@
 use swc_common::EqIgnoreSpan;
+use swc_ecma_ast::Bool;
 
 use crate::*;
 #[derive(Default)]
@@ -206,6 +207,25 @@ impl VisitMut for CondFolding {
                             false => *alt,
                         }
                     }
+                    Expr::Cond(d) => {
+                        cont = true;
+                        Expr::Cond(CondExpr {
+                            span: d.span,
+                            test: d.test,
+                            cons: Box::new(Expr::Cond(CondExpr {
+                                span,
+                                test: d.cons,
+                                cons: cons.clone(),
+                                alt: alt.clone(),
+                            })),
+                            alt: Box::new(Expr::Cond(CondExpr {
+                                span,
+                                test: d.alt,
+                                cons,
+                                alt,
+                            })),
+                        })
+                    }
                     test => match (*cons, *alt) {
                         (Expr::Assign(a), Expr::Assign(b))
                             if !(matches!(&self.mode, Mode::Extract))
@@ -307,6 +327,16 @@ impl VisitMut for CondFolding {
                                 id.1,
                             ))),
                         })),
+                    })
+                }
+                Expr::Bin(b) if b.op == BinaryOp::LogicalAnd || b.op == BinaryOp::LogicalOr => {
+                    cont = true;
+                    let span = b.span;
+                    Expr::Cond(CondExpr {
+                        span: b.span,
+                        test: Box::new(Expr::Bin(b)),
+                        cons: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: true }))),
+                        alt: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: false }))),
                     })
                 }
                 Expr::Assign(assign_expression)
