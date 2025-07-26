@@ -136,9 +136,12 @@ impl VisitMut for CondFolding {
     }
     fn visit_mut_expr(&mut self, node: &mut Expr) {
         let mut cont = true;
+        let mut skip_children = false;
         while take(&mut cont) {
             constant_propagation().visit_mut_expr(node);
-            node.visit_mut_children_with(self);
+            if !take(&mut skip_children) {
+                node.visit_mut_children_with(self);
+            }
             *node = match take(node) {
                 Expr::Cond(CondExpr {
                     span,
@@ -331,6 +334,7 @@ impl VisitMut for CondFolding {
                 }
                 Expr::Bin(b) if b.op == BinaryOp::LogicalAnd || b.op == BinaryOp::LogicalOr => {
                     cont = true;
+                    skip_children = true;
                     let span = b.span;
                     Expr::Cond(CondExpr {
                         span: b.span,
