@@ -24,11 +24,11 @@ use swc_ecma_parser::{Lexer, Parser, Syntax};
 use swc_ecma_transforms_base::rename::Renamer;
 use swc_ecma_transforms_optimization::simplify::const_propagation::constant_propagation;
 use swc_ecma_visit::{VisitMut, VisitMutWith};
-pub mod brighten;
+// pub mod brighten;
 pub mod consts;
 pub mod folding;
-pub mod member_stuffs;
-pub mod stupify;
+// pub mod member_stuffs;
+// pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
@@ -57,7 +57,7 @@ impl SyntaxContextToMark {
     }
 }
 // pub mod brighten;
-pub use brighten::*;
+// pub use brighten::*;
 
 pub use crate::consts::ConstCollector;
 pub trait Purity: Idempotency {
