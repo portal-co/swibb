@@ -1,6 +1,6 @@
 [package]
 name = "portal-solutions-swibb"
-version = "0.3.3"
+version = "0.4.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, DumbJS, and other JS processing tools"
