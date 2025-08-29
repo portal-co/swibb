@@ -332,17 +332,17 @@ impl VisitMut for CondFolding {
                         })),
                     })
                 }
-                Expr::Bin(b) if b.op == BinaryOp::LogicalAnd || b.op == BinaryOp::LogicalOr => {
-                    cont = true;
-                    skip_children = true;
-                    let span = b.span;
-                    Expr::Cond(CondExpr {
-                        span: b.span,
-                        test: Box::new(Expr::Bin(b)),
-                        cons: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: true }))),
-                        alt: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: false }))),
-                    })
-                }
+                // Expr::Bin(b) if b.op == BinaryOp::LogicalAnd || b.op == BinaryOp::LogicalOr => {
+                //     cont = true;
+                //     skip_children = true;
+                //     let span = b.span;
+                //     Expr::Cond(CondExpr {
+                //         span: b.span,
+                //         test: Box::new(Expr::Bin(b)),
+                //         cons: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: true }))),
+                //         alt: Box::new(Expr::Lit(Lit::Bool(Bool { span, value: false }))),
+                //     })
+                // }
                 Expr::Assign(assign_expression)
                     if assign_expression.right.is_cond()
                         && match assign_expression.left {
