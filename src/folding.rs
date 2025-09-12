@@ -15,6 +15,7 @@ pub struct CondFolding {
     pub fold_stmts: bool,
     pub idents: BTreeSet<Id>,
     pub mode: Mode,
+    pub prepend: Option<Atom>,
 }
 impl VisitMut for CondFolding {
     fn visit_mut_stmts(&mut self, node: &mut Vec<Stmt>) {
@@ -283,7 +284,10 @@ impl VisitMut for CondFolding {
                         unreachable!()
                     };
                     let id = (
-                        Atom::new("left"),
+                        match self.prepend.as_ref() {
+                            None => Atom::new("left"),
+                            Some(p) => Atom::new(format!("{p}$left")),
+                        },
                         SyntaxContext::empty().apply_mark(Mark::new()),
                     );
                     self.idents.insert(id.clone());
@@ -401,7 +405,10 @@ impl VisitMut for CondFolding {
                         unreachable!()
                     };
                     let id = (
-                        Atom::new("object"),
+                        match self.prepend.as_ref() {
+                            None => Atom::new("object"),
+                            Some(p) => Atom::new(format!("{p}$object")),
+                        },
                         SyntaxContext::empty().apply_mark(Mark::new()),
                     );
                     self.idents.insert(id.clone());
