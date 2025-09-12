@@ -1,4 +1,4 @@
-use swc_ecma_ast::IdentName;
+use swc_ecma_ast::{IdentName, Tpl, TplElement};
 
 use crate::*;
 pub struct Wither {
@@ -46,14 +46,70 @@ impl VisitMut for Wither {
                         })
                     })
             }
+            Expr::Call(mut c)
+                if c.callee
+                    .as_expr()
+                    .and_then(|e| e.as_ident())
+                    .is_some_and(|i| i.sym == "eval" && !i.optional)
+                    && self.with_stack.len() > 0 =>
+            {
+                if let Some(p) = c.args.get_mut(0) {
+                    if let None = p.spread {
+                        let span = p.expr.span();
+                        let s = {
+                            let mut s = format!("{{");
+                            for (w, _) in self.with_stack.iter() {
+                                s = format!("with({w}){s}")
+                            }
+                            s
+                        };
+                        p.expr = match *take(&mut p.expr) {
+                            Expr::Lit(Lit::Str(Str { span, value, raw })) => {
+                                Box::new(Expr::Lit(Lit::Str(Str {
+                                    span,
+                                    value: Atom::new(format!("{s}{value}}}")),
+                                    raw: None,
+                                })))
+                            }
+                            expr => Box::new(Expr::Tpl(Tpl {
+                                span,
+                                exprs: [Box::new(expr)].into_iter().collect(),
+                                quasis: [
+                                    TplElement {
+                                        span,
+                                        tail: false,
+                                        cooked: None,
+                                        raw: Atom::new({ s }),
+                                    },
+                                    TplElement {
+                                        span,
+                                        tail: true,
+                                        cooked: None,
+                                        raw: Atom::new("}"),
+                                    },
+                                ]
+                                .into_iter()
+                                .collect(),
+                            })),
+                        };
+                    }
+                }
+                Expr::Call(c)
+            }
             node => node,
         }
     }
     fn visit_mut_stmt(&mut self, node: &mut Stmt) {
         *node = match take(node) {
             Stmt::With(mut w) => {
-                let id =
-                    Ident::new_private(Atom::new(format!("{}$with", self.ident_prefix)), w.span);
+                let id = Ident::new_private(
+                    Atom::new(format!(
+                        "{}$with${}",
+                        self.ident_prefix,
+                        self.with_stack.len()
+                    )),
+                    w.span,
+                );
                 Stmt::Block(BlockStmt {
                     span: w.span,
                     ctxt: Default::default(),
