@@ -29,6 +29,7 @@ pub mod consts;
 pub mod folding;
 pub mod inline;
 pub mod wither;
+pub mod module;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
