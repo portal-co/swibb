@@ -89,7 +89,7 @@ pub fn disposer(span: Span, ctxt: SyntaxContext,kinds: Option<&[&str]>) -> Expr 
                         })),
                     })),
                 })),
-            }))).collect() }),
+            }))).chain([Expr::undefined(span)]).collect() }),
         ))),
     })
 }
