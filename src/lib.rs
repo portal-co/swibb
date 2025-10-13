@@ -28,8 +28,8 @@ use swc_ecma_visit::{VisitMut, VisitMutWith};
 pub mod consts;
 pub mod folding;
 pub mod inline;
-pub mod wither;
 pub mod module;
+pub mod wither;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
@@ -172,8 +172,6 @@ impl VisitMut for CondWrapping {
         node.visit_mut_children_with(self);
     }
 }
-
-
 
 impl ConstCollector {
     pub fn is_weak_map(&self, id: &Id) -> bool {
