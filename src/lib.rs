@@ -30,6 +30,7 @@ pub mod folding;
 pub mod inline;
 pub mod module;
 pub mod wither;
+pub mod inflate;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
