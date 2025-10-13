@@ -546,85 +546,85 @@ impl VisitMut for ArrowCallPack {
             );
         }
     }
-    fn visit_mut_stmt(&mut self, node: &mut Stmt) {
-        node.visit_mut_children_with(self);
-        *node = match take(node) {
-            Stmt::Expr(e)
-                if e.expr.as_call().is_some_and(
-                    |CallExpr {
-                         span,
-                         ctxt,
-                         callee,
-                         args,
-                         type_args,
-                     }| {
-                        args.len() == 0
-                            && callee
-                                .as_expr()
-                                .and_then(|a| a.as_arrow())
-                                .is_some_and(|a| {
-                                    a.body.is_block_stmt()
-                                        && a.params.iter().all(|a| {
-                                            a.as_assign().is_some_and(|x| x.left.is_ident())
-                                        })
-                                })
-                    },
-                ) =>
-            {
-                let Expr::Call(CallExpr {
-                    span,
-                    ctxt,
-                    callee,
-                    args,
-                    type_args,
-                }) = *e.expr
-                else {
-                    unreachable!()
-                };
-                let Callee::Expr(e) = callee else {
-                    unreachable!()
-                };
-                let Expr::Arrow(a) = *e else { unreachable!() };
-                let BlockStmtOrExpr::BlockStmt(mut b) = *a.body else {
-                    unreachable!()
-                };
-                b.stmts.insert(
-                    0,
-                    Stmt::Decl(Decl::Var(Box::new(VarDecl {
-                        span: b.span,
-                        ctxt: Default::default(),
-                        kind: VarDeclKind::Let,
-                        declare: false,
-                        decls: a
-                            .params
-                            .into_iter()
-                            .map(|a| {
-                                let Pat::Assign(a) = a else { unreachable!() };
-                                let Pat::Ident(i) = *a.left else {
-                                    unreachable!()
-                                };
-                                VarDeclarator {
-                                    span: b.span,
-                                    name: i.into(),
-                                    init: Some(a.right),
-                                    definite: false,
-                                }
-                                // self.idents.insert(i.id.to_id());
-                                // Expr::Assign(AssignExpr {
-                                //     span: a.span,
-                                //     op: AssignOp::Assign,
-                                //     left: AssignTarget::Simple(SimpleAssignTarget::Ident(i)),
-                                //     right: a.right,
-                                // })
-                            })
-                            .collect(),
-                    }))),
-                );
-                Stmt::Block(b)
-            }
-            node => node,
-        };
-    }
+    // fn visit_mut_stmt(&mut self, node: &mut Stmt) {
+    //     node.visit_mut_children_with(self);
+    //     *node = match take(node) {
+    //         Stmt::Expr(e)
+    //             if e.expr.as_call().is_some_and(
+    //                 |CallExpr {
+    //                      span,
+    //                      ctxt,
+    //                      callee,
+    //                      args,
+    //                      type_args,
+    //                  }| {
+    //                     args.len() == 0
+    //                         && callee
+    //                             .as_expr()
+    //                             .and_then(|a| a.as_arrow())
+    //                             .is_some_and(|a| {
+    //                                 a.body.is_block_stmt()
+    //                                     && a.params.iter().all(|a| {
+    //                                         a.as_assign().is_some_and(|x| x.left.is_ident())
+    //                                     })
+    //                             })
+    //                 },
+    //             ) =>
+    //         {
+    //             let Expr::Call(CallExpr {
+    //                 span,
+    //                 ctxt,
+    //                 callee,
+    //                 args,
+    //                 type_args,
+    //             }) = *e.expr
+    //             else {
+    //                 unreachable!()
+    //             };
+    //             let Callee::Expr(e) = callee else {
+    //                 unreachable!()
+    //             };
+    //             let Expr::Arrow(a) = *e else { unreachable!() };
+    //             let BlockStmtOrExpr::BlockStmt(mut b) = *a.body else {
+    //                 unreachable!()
+    //             };
+    //             b.stmts.insert(
+    //                 0,
+    //                 Stmt::Decl(Decl::Var(Box::new(VarDecl {
+    //                     span: b.span,
+    //                     ctxt: Default::default(),
+    //                     kind: VarDeclKind::Let,
+    //                     declare: false,
+    //                     decls: a
+    //                         .params
+    //                         .into_iter()
+    //                         .map(|a| {
+    //                             let Pat::Assign(a) = a else { unreachable!() };
+    //                             let Pat::Ident(i) = *a.left else {
+    //                                 unreachable!()
+    //                             };
+    //                             VarDeclarator {
+    //                                 span: b.span,
+    //                                 name: i.into(),
+    //                                 init: Some(a.right),
+    //                                 definite: false,
+    //                             }
+    //                             // self.idents.insert(i.id.to_id());
+    //                             // Expr::Assign(AssignExpr {
+    //                             //     span: a.span,
+    //                             //     op: AssignOp::Assign,
+    //                             //     left: AssignTarget::Simple(SimpleAssignTarget::Ident(i)),
+    //                             //     right: a.right,
+    //                             // })
+    //                         })
+    //                         .collect(),
+    //                 }))),
+    //             );
+    //             Stmt::Block(b)
+    //         }
+    //         node => node,
+    //     };
+    // }
     fn visit_mut_expr(&mut self, node: &mut Expr) {
         node.visit_mut_children_with(self);
         *node = match take(node) {
