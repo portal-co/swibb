@@ -16,9 +16,9 @@ use swc_common::{Mark, SyntaxContext};
 use swc_ecma_ast::{
     ArrowExpr, AssignExpr, AssignOp, AssignPat, AssignTarget, AssignTargetPat, BinExpr, BinaryOp,
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, ComputedPropName, CondExpr, Decl,
-    Expr, ExprStmt, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, Module, ModuleItem, Pat,
-    Program, ReturnStmt, SeqExpr, SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr, UnaryOp,
-    VarDecl, VarDeclKind, VarDeclarator,
+    Expr, ExprStmt, Function, Id, Ident, IfStmt, Lit, MemberExpr, MemberProp, Module, ModuleItem,
+    Pat, Program, ReturnStmt, SeqExpr, SimpleAssignTarget, Stmt, Str, ThrowStmt, UnaryExpr,
+    UnaryOp, VarDecl, VarDeclKind, VarDeclarator,
 };
 use swc_ecma_parser::{Lexer, Parser, Syntax};
 use swc_ecma_transforms_base::rename::Renamer;
@@ -27,15 +27,20 @@ use swc_ecma_visit::{VisitMut, VisitMutWith};
 // pub mod brighten;
 pub mod consts;
 pub mod folding;
+pub mod inflate;
 pub mod inline;
 pub mod module;
 pub mod wither;
-pub mod inflate;
+pub mod scope;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
+use swc_ecma_visit::{Visit, VisitWith};
+
+
+
 pub struct SyntaxContextToMark {
     root: Mark,
     map: HashMap<(Mark, Mark), Mark>,
