@@ -1,6 +1,5 @@
-use swc_ecma_ast::FnExpr;
-
 use crate::*;
+use swc_ecma_ast::FnExpr;
 #[derive(Default)]
 #[non_exhaustive]
 pub struct AssignCollector {

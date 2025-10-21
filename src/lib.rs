@@ -3,7 +3,6 @@ use std::{
     mem::{replace, take},
     sync::Mutex,
 };
-
 // use base64::Engine;
 use swc_atoms::Atom;
 use swc_common::{
@@ -25,23 +24,20 @@ use swc_ecma_transforms_base::rename::Renamer;
 use swc_ecma_transforms_optimization::simplify::const_propagation::constant_propagation;
 use swc_ecma_visit::{VisitMut, VisitMutWith};
 // pub mod brighten;
+pub mod amd;
 pub mod consts;
 pub mod folding;
 pub mod inflate;
 pub mod inline;
 pub mod module;
-pub mod wither;
 pub mod scope;
-pub mod amd;
+pub mod wither;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
 use swc_ecma_visit::{Visit, VisitWith};
-
-
-
 pub struct SyntaxContextToMark {
     root: Mark,
     map: HashMap<(Mark, Mark), Mark>,
@@ -68,7 +64,6 @@ impl SyntaxContextToMark {
 }
 // pub mod brighten;
 // pub use brighten::*;
-
 pub use crate::consts::ConstCollector;
 pub trait Purity: Idempotency {
     fn is_pure(&self) -> bool;
@@ -179,7 +174,6 @@ impl VisitMut for CondWrapping {
         node.visit_mut_children_with(self);
     }
 }
-
 impl ConstCollector {
     pub fn is_weak_map(&self, id: &Id) -> bool {
         return self.map.get(id).is_some_and(|m| {
@@ -227,7 +221,6 @@ impl ConstCollector {
         }
     }
 }
-
 pub struct Cleanse {}
 impl VisitMut for Cleanse {
     fn visit_mut_stmts(&mut self, node: &mut Vec<Stmt>) {
@@ -293,27 +286,20 @@ impl<R> Garbler<R> {
 const _: () = {
     use rand::Rng;
     use rand::distr::SampleString;
-
     impl<'a, R: Rng> Renamer for &'a Garbler<R> {
         const RESET_N: bool = true;
-
         const MANGLE: bool = true;
-
         fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
             Renamer::new_name_for(&**self, orig, n)
         }
-
         type Target = Atom;
     }
     impl<R: Rng> Renamer for Garbler<R> {
         const RESET_N: bool = true;
-
         const MANGLE: bool = true;
-
         fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
             *n += 1;
             use rand::distr::Alphabetic;
-
             return self
                 .cache
                 .lock()
@@ -325,7 +311,6 @@ const _: () = {
                 })
                 .clone();
         }
-
         type Target = Atom;
     }
 };
@@ -337,18 +322,14 @@ pub struct ManglingRenamer {
 }
 impl Renamer for ManglingRenamer {
     const RESET_N: bool = true;
-
     const MANGLE: bool = false;
     type Target = Atom;
-
     fn new_name_for(&self, orig: &Id, n: &mut usize) -> Atom {
         *n += 1;
-
         #[cfg(not(feature = "encoding"))]
         fn encode(this: &ManglingRenamer, a: String) -> String {
             a
         }
-
         #[cfg(feature = "encoding")]
         fn encode(this: &ManglingRenamer, a: String) -> String {
             if a.len() > 19 && this.encode {
@@ -360,7 +341,6 @@ impl Renamer for ManglingRenamer {
                 a
             }
         }
-
         Atom::new(
             match if orig.1 == SyntaxContext::empty() && !(orig.0.starts_with("_$")) {
                 format!("{}", &orig.0)

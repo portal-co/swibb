@@ -1,5 +1,4 @@
 use crate::*;
-
 pub struct Brightener {
     pub key: Atom,
     pub global: Expr,

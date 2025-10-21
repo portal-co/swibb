@@ -1,5 +1,4 @@
 use swc_ecma_ast::{ExprOrSpread, FnExpr, Function, IdentName, Param, RestPat, ThisExpr};
-
 use crate::*;
 #[derive(Default)]
 #[non_exhaustive]

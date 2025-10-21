@@ -1,7 +1,6 @@
+use crate::*;
 use sha3::Digest;
 use swc_ecma_ast::Module;
-
-use crate::*;
 pub fn test_load(cm: &Lrc<SourceMap>, testname: &str, fm: &str) -> Module {
     let fm = cm.new_source_file(
         Lrc::new(FileName::Custom(format!(
@@ -12,7 +11,6 @@ pub fn test_load(cm: &Lrc<SourceMap>, testname: &str, fm: &str) -> Module {
     );
     // let cm: Lrc<SourceMap> = Default::default();
     let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
-
     // Real usage
     // let fm = cm
     //     .load_file(Path::new("test.js"))
@@ -29,13 +27,10 @@ pub fn test_load(cm: &Lrc<SourceMap>, testname: &str, fm: &str) -> Module {
         StringInput::from(&*fm),
         None,
     );
-
     let mut parser = Parser::new_from(lexer);
-
     for e in parser.take_errors() {
         e.into_diagnostic(&handler).emit();
     }
-
     let mut module = parser
         .parse_module()
         .map_err(|mut e| {

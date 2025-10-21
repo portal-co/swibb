@@ -1,6 +1,5 @@
-use swc_ecma_ast::{FnExpr, Function, MetaPropExpr, MetaPropKind, Param, ThisExpr};
-
 use crate::*;
+use swc_ecma_ast::{FnExpr, Function, MetaPropExpr, MetaPropKind, Param, ThisExpr};
 struct InflateInner {
     ctx: SyntaxContext,
 }

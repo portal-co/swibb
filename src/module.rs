@@ -1,3 +1,4 @@
+use crate::*;
 use swc_common::Span;
 use swc_ecma_ast::{
     ArrowExpr, AssignExpr, AssignOp, BinExpr, BinaryOp, CallExpr, Expr, ExprOrSpread, ExprStmt,
@@ -5,8 +6,6 @@ use swc_ecma_ast::{
     MemberExpr, MetaPropExpr, MetaPropKind, ObjectLit, ObjectPat, OptCall, OptChainBase,
     OptChainExpr, Pat, Prop, PropOrSpread, Stmt, Str,
 };
-
-use crate::*;
 pub const KINDS: &'static [&'static str] = &["hot", "webpackHot"];
 pub fn is_meta_hot_accept(a: &Expr) -> bool {
     match match a {
@@ -243,10 +242,10 @@ impl ImportManifest {
                                 args: [
                                     Expr::Lit(Lit::Str(Str{span,raw:None,value:a.clone()})),
                                     match Ident::new_private(Atom::new(format!("$new${}",a)), span){
-                                        id => Expr::Arrow(ArrowExpr { 
-                                            span, 
-                                            ctxt: Default::default(), 
-                                            params: [Pat::Ident(id.clone().into())].into_iter().collect(), 
+                                        id => Expr::Arrow(ArrowExpr {
+                                            span,
+                                            ctxt: Default::default(),
+                                            params: [Pat::Ident(id.clone().into())].into_iter().collect(),
                                             body: Box::new(Expr::Assign(AssignExpr{
                                                 span,
                                                 op:AssignOp::Assign,
@@ -256,16 +255,16 @@ impl ImportManifest {
                                                     optional:false,
                                                     type_ann:None,
                                                     props:b.iter().map(|(c,d)|swc_ecma_ast::ObjectPatProp::KeyValue(KeyValuePatProp{
-                                                        key: swc_ecma_ast::PropName::Str(Str { 
+                                                        key: swc_ecma_ast::PropName::Str(Str {
                                                             span,
-                                                            value: c.clone(), 
+                                                            value: c.clone(),
                                                             raw: None }),
                                                         value: Box::new(Pat::Ident(d.clone().into()))
                                                     })).collect()})
-                                                )}).into()), 
-                                            is_async: false, 
+                                                )}).into()),
+                                            is_async: false,
                                             is_generator: false,
-                                            type_params: None, 
+                                            type_params: None,
                                             return_type: None })
                                     },
                                 ].into_iter().map(|a|ExprOrSpread { spread: None, expr: Box::new(a) }).collect(),

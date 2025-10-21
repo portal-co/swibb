@@ -1,7 +1,6 @@
+use crate::*;
 use swc_common::EqIgnoreSpan;
 use swc_ecma_ast::Bool;
-
-use crate::*;
 #[derive(Default)]
 #[non_exhaustive]
 pub enum Mode {

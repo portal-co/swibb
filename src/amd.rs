@@ -1,7 +1,6 @@
+use super::*;
 use swc_ecma_ast::{ArrayLit, ExprOrSpread, IdentName, ModuleDecl, Param, YieldExpr};
 use swc_ecma_parser::token::IdentKind;
-
-use super::*;
 pub struct AMD {
     modules: ArrayLit,
     body: BlockStmt,

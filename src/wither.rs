@@ -1,6 +1,5 @@
-use swc_ecma_ast::{IdentName, Tpl, TplElement};
-
 use crate::*;
+use swc_ecma_ast::{IdentName, Tpl, TplElement};
 pub struct Wither {
     pub with_stack: Vec<(Ident, BTreeSet<Id>)>,
     pub ident_prefix: Atom,

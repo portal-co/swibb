@@ -82,7 +82,6 @@ impl<'a, 'b: 'a, 'c, 'd: 'c> VisitMut for Inliner<'a, 'b, 'c, 'd> {
                     }
                 }
             }
-
             if let Expr::Ident(i) = node {
                 if let Some(c) = self.inner.map.get(&i.to_id()) {
                     if go(&self.flags, &self.inner, &mut *self.opt_inline, &**c) {
