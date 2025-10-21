@@ -32,6 +32,7 @@ pub mod inline;
 pub mod module;
 pub mod wither;
 pub mod scope;
+pub mod amd;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
