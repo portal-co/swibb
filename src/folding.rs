@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use crate::*;
 use swc_common::EqIgnoreSpan;
 use swc_ecma_ast::Bool;
@@ -545,85 +547,104 @@ impl VisitMut for ArrowCallPack {
             );
         }
     }
-    // fn visit_mut_stmt(&mut self, node: &mut Stmt) {
-    //     node.visit_mut_children_with(self);
-    //     *node = match take(node) {
-    //         Stmt::Expr(e)
-    //             if e.expr.as_call().is_some_and(
-    //                 |CallExpr {
-    //                      span,
-    //                      ctxt,
-    //                      callee,
-    //                      args,
-    //                      type_args,
-    //                  }| {
-    //                     args.len() == 0
-    //                         && callee
-    //                             .as_expr()
-    //                             .and_then(|a| a.as_arrow())
-    //                             .is_some_and(|a| {
-    //                                 a.body.is_block_stmt()
-    //                                     && a.params.iter().all(|a| {
-    //                                         a.as_assign().is_some_and(|x| x.left.is_ident())
-    //                                     })
-    //                             })
-    //                 },
-    //             ) =>
-    //         {
-    //             let Expr::Call(CallExpr {
-    //                 span,
-    //                 ctxt,
-    //                 callee,
-    //                 args,
-    //                 type_args,
-    //             }) = *e.expr
-    //             else {
-    //                 unreachable!()
-    //             };
-    //             let Callee::Expr(e) = callee else {
-    //                 unreachable!()
-    //             };
-    //             let Expr::Arrow(a) = *e else { unreachable!() };
-    //             let BlockStmtOrExpr::BlockStmt(mut b) = *a.body else {
-    //                 unreachable!()
-    //             };
-    //             b.stmts.insert(
-    //                 0,
-    //                 Stmt::Decl(Decl::Var(Box::new(VarDecl {
-    //                     span: b.span,
-    //                     ctxt: Default::default(),
-    //                     kind: VarDeclKind::Let,
-    //                     declare: false,
-    //                     decls: a
-    //                         .params
-    //                         .into_iter()
-    //                         .map(|a| {
-    //                             let Pat::Assign(a) = a else { unreachable!() };
-    //                             let Pat::Ident(i) = *a.left else {
-    //                                 unreachable!()
-    //                             };
-    //                             VarDeclarator {
-    //                                 span: b.span,
-    //                                 name: i.into(),
-    //                                 init: Some(a.right),
-    //                                 definite: false,
-    //                             }
-    //                             // self.idents.insert(i.id.to_id());
-    //                             // Expr::Assign(AssignExpr {
-    //                             //     span: a.span,
-    //                             //     op: AssignOp::Assign,
-    //                             //     left: AssignTarget::Simple(SimpleAssignTarget::Ident(i)),
-    //                             //     right: a.right,
-    //                             // })
-    //                         })
-    //                         .collect(),
-    //                 }))),
-    //             );
-    //             Stmt::Block(b)
-    //         }
-    //         node => node,
-    //     };
-    // }
+    fn visit_mut_stmt(&mut self, node: &mut Stmt) {
+        node.visit_mut_children_with(self);
+        *node = match take(node) {
+            Stmt::Expr(e)
+                if e.expr.as_call().is_some_and(
+                    |CallExpr {
+                         span,
+                         ctxt,
+                         callee,
+                         args,
+                         type_args,
+                     }| {
+                        callee
+                            .as_expr()
+                            .and_then(|a| a.as_arrow())
+                            .is_some_and(|a| {
+                                a.body.is_expr()
+                                    && a.params.iter().all(|a| {
+                                        a.as_assign().is_some_and(|x| x.left.is_ident())
+                                            || a.is_ident()
+                                    })
+                            })
+                            && args.iter().all(|a| a.spread.is_none())
+                    },
+                ) =>
+            {
+                let Expr::Call(CallExpr {
+                    span,
+                    ctxt,
+                    callee,
+                    args,
+                    type_args,
+                }) = *e.expr
+                else {
+                    unreachable!()
+                };
+                let Callee::Expr(e) = callee else {
+                    unreachable!()
+                };
+                let Expr::Arrow(a) = *e else { unreachable!() };
+                let BlockStmtOrExpr::BlockStmt(mut b) = *a.body else {
+                    unreachable!()
+                };
+                b.stmts.insert(
+                    0,
+                    Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                        span: b.span,
+                        ctxt: Default::default(),
+                        kind: VarDeclKind::Let,
+                        declare: false,
+                        decls: a
+                            .params
+                            .into_iter()
+                            .zip(
+                                args.into_iter()
+                                    .map(|a| a.expr)
+                                    .chain(once(Expr::undefined(span)).cycle()),
+                            )
+                            .map(|(a, e)| {
+                                let s = a.span();
+                                let (i, r) = match a {
+                                    Pat::Assign(a) => {
+                                        let Pat::Ident(i) = *a.left else {
+                                            unreachable!()
+                                        };
+                                        (
+                                            i,
+                                            Box::new(Expr::Seq(SeqExpr {
+                                                span,
+                                                exprs: [e, a.right].into_iter().collect(),
+                                            })),
+                                        )
+                                    }
+                                    Pat::Ident(i) => (i, e),
+                                    _ => unreachable!(),
+                                };
+                                VarDeclarator {
+                                    span: s,
+                                    name: i.into(),
+                                    init: Some(r),
+                                    definite: false,
+                                }
+                                // self.idents.insert(i.id.to_id());
+                                // Expr::Assign(AssignExpr {
+                                //     span: a.span,
+                                //     op: AssignOp::Assign,
+                                //     left: AssignTarget::Simple(SimpleAssignTarget::Ident(i)),
+                                //     right: a.right,
+                                // })
+                            })
+                            .collect(),
+                    }))),
+                );
+                Stmt::Block(b)
+            }
+            node => node,
+        };
+    }
     fn visit_mut_expr(&mut self, node: &mut Expr) {
         node.visit_mut_children_with(self);
         *node = match take(node) {
@@ -633,16 +654,16 @@ impl VisitMut for ArrowCallPack {
                 callee,
                 args,
                 type_args,
-            }) if args.len() == 0
-                && callee
-                    .as_expr()
-                    .and_then(|a| a.as_arrow())
-                    .is_some_and(|a| {
-                        a.body.is_expr()
-                            && a.params
-                                .iter()
-                                .all(|a| a.as_assign().is_some_and(|x| x.left.is_ident()))
-                    }) =>
+            }) if callee
+                .as_expr()
+                .and_then(|a| a.as_arrow())
+                .is_some_and(|a| {
+                    a.body.is_expr()
+                        && a.params.iter().all(|a| {
+                            a.as_assign().is_some_and(|x| x.left.is_ident()) || a.is_ident()
+                        })
+                })
+                && args.iter().all(|a| a.spread.is_none()) =>
             {
                 let Callee::Expr(e) = callee else {
                     unreachable!()
@@ -654,17 +675,35 @@ impl VisitMut for ArrowCallPack {
                 let mut x = a
                     .params
                     .into_iter()
-                    .map(|a| {
-                        let Pat::Assign(a) = a else { unreachable!() };
-                        let Pat::Ident(i) = *a.left else {
-                            unreachable!()
+                    .zip(
+                        args.into_iter()
+                            .map(|a| a.expr)
+                            .chain(once(Expr::undefined(span)).cycle()),
+                    )
+                    .map(|(a, e)| {
+                        let s = a.span();
+                        let (i, r) = match a {
+                            Pat::Assign(a) => {
+                                let Pat::Ident(i) = *a.left else {
+                                    unreachable!()
+                                };
+                                (
+                                    i,
+                                    Box::new(Expr::Seq(SeqExpr {
+                                        span,
+                                        exprs: [e, a.right].into_iter().collect(),
+                                    })),
+                                )
+                            }
+                            Pat::Ident(i) => (i, e),
+                            _ => unreachable!(),
                         };
                         self.idents.insert(i.id.to_id());
                         Expr::Assign(AssignExpr {
-                            span: a.span,
+                            span: s,
                             op: AssignOp::Assign,
                             left: AssignTarget::Simple(SimpleAssignTarget::Ident(i)),
-                            right: a.right,
+                            right: r,
                         })
                     })
                     .map(Box::new)
