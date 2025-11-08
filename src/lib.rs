@@ -24,7 +24,7 @@ use swc_ecma_transforms_base::rename::Renamer;
 use swc_ecma_transforms_optimization::simplify::const_propagation::constant_propagation;
 use swc_ecma_visit::{VisitMut, VisitMutWith};
 // pub mod brighten;
-pub mod amd;
+// pub mod amd;
 pub mod consts;
 pub mod folding;
 pub mod inflate;
