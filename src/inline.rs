@@ -73,10 +73,12 @@ impl<'a, 'b: 'a, 'c, 'd: 'c> VisitMut for Inliner<'a, 'b, 'c, 'd> {
                         }
                         if let MemberProp::Computed(c) = &m.prop {
                             if let Expr::Lit(Lit::Str(s)) = &*c.expr {
-                                if is_global_this(&s.value) {
+                                if let Some(v) = s.value.as_str(){
+                                if is_global_this(v) {
                                     *node = take(&mut m.obj);
                                     continue;
                                 }
+                            }
                             }
                         }
                     }

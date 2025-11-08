@@ -28,7 +28,7 @@ impl VisitMut for Wither {
                                 op: BinaryOp::In,
                                 left: Box::new(Expr::Lit(Lit::Str(Str {
                                     span: i.span,
-                                    value: i.sym.clone(),
+                                    value: i.sym.clone().into(),
                                     raw: None,
                                 }))),
                                 right: b.clone().into(),
@@ -63,10 +63,10 @@ impl VisitMut for Wither {
                             s
                         };
                         p.expr = match *take(&mut p.expr) {
-                            Expr::Lit(Lit::Str(Str { span, value, raw })) => {
+                            Expr::Lit(Lit::Str(Str { span, value, raw })) if value.as_str().is_some()=> {
                                 Box::new(Expr::Lit(Lit::Str(Str {
                                     span,
-                                    value: Atom::new(format!("{s}{value}}}")),
+                                    value: Atom::new(format!("{s}{}}}",value.as_str().unwrap())).into(),
                                     raw: None,
                                 })))
                             }

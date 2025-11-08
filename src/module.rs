@@ -176,7 +176,7 @@ impl ImportManifest {
                                     imported: Some(swc_ecma_ast::ModuleExportName::Str(
                                         swc_ecma_ast::Str {
                                             span,
-                                            value: c.clone(),
+                                            value: c.clone().into(),
                                             raw: None,
                                         },
                                     )),
@@ -190,7 +190,7 @@ impl ImportManifest {
                         src: Box::new(swc_ecma_ast::Str {
                             span,
                             raw: None,
-                            value: a.clone(),
+                            value: a.clone().into(),
                         }),
                     })),
                     ModuleItem::Stmt(Stmt::Decl(swc_ecma_ast::Decl::Var(Box::new(VarDecl {
@@ -240,7 +240,7 @@ impl ImportManifest {
                                     )),
                                 })),
                                 args: [
-                                    Expr::Lit(Lit::Str(Str{span,raw:None,value:a.clone()})),
+                                    Expr::Lit(Lit::Str(Str{span,raw:None,value:a.clone().into()})),
                                     match Ident::new_private(Atom::new(format!("$new${}",a)), span){
                                         id => Expr::Arrow(ArrowExpr {
                                             span,
@@ -257,7 +257,7 @@ impl ImportManifest {
                                                     props:b.iter().map(|(c,d)|swc_ecma_ast::ObjectPatProp::KeyValue(KeyValuePatProp{
                                                         key: swc_ecma_ast::PropName::Str(Str {
                                                             span,
-                                                            value: c.clone(),
+                                                            value: c.clone().into(),
                                                             raw: None }),
                                                         value: Box::new(Pat::Ident(d.clone().into()))
                                                     })).collect()})
