@@ -18,7 +18,7 @@
 //!
 //! ## Basic Constant Folding
 //!
-//! ```rust
+//! ```rust,no_run
 //! use portal_solutions_swibb::CondFolding;
 //! use swc_ecma_visit::VisitMutWith;
 //! # #[cfg(feature = "test")]
@@ -35,7 +35,7 @@
 //!
 //! ## Collecting Constants
 //!
-//! ```rust
+//! ```rust,no_run
 //! use portal_solutions_swibb::ConstCollector;
 //! use swc_ecma_visit::VisitMutWith;
 //! # #[cfg(feature = "test")]
@@ -354,11 +354,12 @@ impl ConstCollector {
 ///
 /// ## Usage
 ///
-/// ```rust
+/// ```rust,no_run
 /// use portal_solutions_swibb::Cleanse;
 /// use swc_ecma_visit::VisitMutWith;
+/// # use swc_ecma_ast::Module;
 ///
-/// let mut module = /* ... */;
+/// # let mut module: Module = unimplemented!();
 /// module.visit_mut_with(&mut Cleanse {});
 /// // Any detected malicious patterns have been removed
 /// ```

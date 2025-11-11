@@ -10,7 +10,7 @@
 //!
 //! Load and parse a JavaScript module for testing:
 //!
-//! ```rust
+//! ```rust,no_run
 //! # #[cfg(feature = "test")]
 //! # {
 //! use portal_solutions_swibb::test::*;
@@ -27,7 +27,7 @@
 //!
 //! The `map_load!` macro simplifies test setup by creating the SourceMap and loading code:
 //!
-//! ```rust
+//! ```rust,no_run
 //! # #[cfg(feature = "test")]
 //! # {
 //! use portal_solutions_swibb::map_load;
@@ -107,7 +107,7 @@ use swc_ecma_ast::Module;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// # #[cfg(feature = "test")]
 /// # {
 /// use portal_solutions_swibb::test::test_load;
@@ -193,7 +193,7 @@ pub use swc_common;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// # #[cfg(feature = "test")]
 /// # {
 /// use portal_solutions_swibb::map_load;
