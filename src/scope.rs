@@ -58,19 +58,19 @@ impl Visit for IdentCollector {
 /// // externs() would return a set containing 'y' (but not 'x')
 /// // since 'y' is referenced but not defined in the function
 /// ```
-pub fn externs(a: &Function) -> BTreeSet<Id> {
-    let mut params = IdentCollector {
+pub fn externs(function: &Function) -> BTreeSet<Id> {
+    let mut param_collector = IdentCollector {
         ids: Default::default(),
         pat: true,
     };
-    a.params.visit_with(&mut params);
-    let mut code = IdentCollector {
+    function.params.visit_with(&mut param_collector);
+    let mut all_idents_collector = IdentCollector {
         ids: Default::default(),
         pat: false,
     };
-    a.visit_with(&mut code);
-    for p in params.ids {
-        code.ids.remove(&p);
+    function.visit_with(&mut all_idents_collector);
+    for param_id in param_collector.ids {
+        all_idents_collector.ids.remove(&param_id);
     }
-    return code.ids;
+    return all_idents_collector.ids;
 }
