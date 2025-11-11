@@ -127,22 +127,22 @@ impl SyntaxContextToMark {
     ///
     /// # Arguments
     ///
-    /// * `a` - The syntax context to convert
+    /// * `syntax_context` - The syntax context to convert
     ///
     /// # Returns
     ///
     /// A mark representing the same scope as the input syntax context
-    pub fn of(&mut self, mut a: SyntaxContext) -> Mark {
-        if a == SyntaxContext::empty() {
+    pub fn of(&mut self, mut syntax_context: SyntaxContext) -> Mark {
+        if syntax_context == SyntaxContext::empty() {
             return self.root;
         }
-        let last = a.remove_mark();
-        let next = self.of(a);
-        let last = self
+        let current_mark = syntax_context.remove_mark();
+        let parent_mark = self.of(syntax_context);
+        let combined_mark = self
             .map
-            .entry((last, next))
-            .or_insert_with(|| Mark::fresh(next));
-        return *last;
+            .entry((current_mark, parent_mark))
+            .or_insert_with(|| Mark::fresh(parent_mark));
+        return *combined_mark;
     }
 }
 // pub mod brighten;
@@ -166,11 +166,11 @@ impl Purity for Expr {
     fn is_pure(&self) -> bool {
         match self {
             Expr::Ident(_) | Expr::Lit(_) | Expr::This(_) | Expr::Arrow(_) => true,
-            Expr::Member(m) => match &m.prop {
-                MemberProp::PrivateName(_) => m.obj.is_pure(),
+            Expr::Member(member) => match &member.prop {
+                MemberProp::PrivateName(_) => member.obj.is_pure(),
                 _ => false,
             },
-            Expr::Cond(c) => [&c.test, &c.alt, &c.cons].into_iter().all(|a| a.is_pure()),
+            Expr::Cond(cond) => [&cond.test, &cond.alt, &cond.cons].into_iter().all(|expr| expr.is_pure()),
             _ => false,
         }
     }
@@ -202,18 +202,18 @@ impl Idempotency for Expr {
     fn idempotent(&self) -> bool {
         match self {
             Expr::Assign(AssignExpr {
-                span,
+                span: _,
                 op,
                 left,
                 right,
             }) => *op == AssignOp::Assign && left.idempotent() && right.idempotent(),
-            Expr::Member(m) => match &m.prop {
-                MemberProp::PrivateName(_) => m.obj.idempotent(),
+            Expr::Member(member) => match &member.prop {
+                MemberProp::PrivateName(_) => member.obj.idempotent(),
                 _ => false,
             },
-            Expr::Cond(c) => [&c.test, &c.alt, &c.cons]
+            Expr::Cond(cond) => [&cond.test, &cond.alt, &cond.cons]
                 .into_iter()
-                .all(|a| a.idempotent()),
+                .all(|expr| expr.idempotent()),
             _ => self.is_pure(),
         }
     }
@@ -224,16 +224,14 @@ impl Idempotency for AssignTarget {
             swc_ecma_ast::AssignTarget::Simple(simple_assign_target) => {
                 match simple_assign_target {
                     SimpleAssignTarget::Ident(_) => true,
-                    SimpleAssignTarget::Member(m) => match &m.prop {
-                        MemberProp::PrivateName(_) => m.obj.idempotent(),
+                    SimpleAssignTarget::Member(member) => match &member.prop {
+                        MemberProp::PrivateName(_) => member.obj.idempotent(),
                         _ => false,
                     },
                     _ => false,
                 }
             }
-            swc_ecma_ast::AssignTarget::Pat(assign_target_pat) => match assign_target_pat {
-                _ => false,
-            },
+            swc_ecma_ast::AssignTarget::Pat(_assign_target_pat) => false,
         }
     }
 }
