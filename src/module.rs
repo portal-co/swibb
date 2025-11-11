@@ -1,3 +1,12 @@
+//! Hot Module Replacement (HMR) utilities for JavaScript modules.
+//!
+//! This module provides utilities for working with hot module replacement in JavaScript,
+//! particularly for tools like Webpack and Vite. It includes helpers for:
+//! - Detecting HMR accept calls
+//! - Generating import manifests
+//! - Creating HMR-compatible code
+//! - Managing global variable access
+
 use crate::*;
 use swc_common::Span;
 use swc_ecma_ast::{
@@ -6,7 +15,26 @@ use swc_ecma_ast::{
     MemberExpr, MetaPropExpr, MetaPropKind, ObjectLit, ObjectPat, OptCall, OptChainBase,
     OptChainExpr, Pat, Prop, PropOrSpread, Stmt, Str,
 };
+
+/// Standard HMR property names used by module bundlers.
+///
+/// These are the property names on `import.meta` that provide HMR functionality:
+/// - `hot`: Standard HMR API (Webpack, Vite)
+/// - `webpackHot`: Webpack-specific HMR API
 pub const KINDS: &'static [&'static str] = &["hot", "webpackHot"];
+
+/// Checks if an expression is an HMR accept call.
+///
+/// Detects patterns like `import.meta.hot.accept(...)` or `import.meta.webpackHot.accept(...)`
+/// which are used to register hot module replacement callbacks.
+///
+/// # Arguments
+///
+/// * `a` - The expression to check
+///
+/// # Returns
+///
+/// `true` if the expression is an HMR accept call, `false` otherwise
 pub fn is_meta_hot_accept(a: &Expr) -> bool {
     match match a {
         Expr::Member(m) => m,
@@ -42,6 +70,20 @@ pub fn is_meta_hot_accept(a: &Expr) -> bool {
         }
     }
 }
+
+/// Generates an expression that accesses the HMR API.
+///
+/// Creates an expression like `import.meta.hot` or `import.meta.webpackHot`,
+/// using optional chaining for safe access.
+///
+/// # Arguments
+///
+/// * `span` - Source location for the generated expression
+/// * `kind` - The HMR property name ("hot" or "webpackHot")
+///
+/// # Returns
+///
+/// An expression accessing the specified HMR API
 pub fn import_meta_hot(span: Span, kind: &str) -> Expr {
     Expr::OptChain(OptChainExpr {
         span,
@@ -59,6 +101,26 @@ pub fn import_meta_hot(span: Span, kind: &str) -> Expr {
         })),
     })
 }
+
+/// Generates a disposer function for HMR cleanup.
+///
+/// Creates an arrow function that calls the dispose method on all configured
+/// HMR APIs. This is used to clean up resources when a module is updated.
+///
+/// The generated function looks like:
+/// ```javascript
+/// ($) => (import.meta.hot?.dispose?.($), import.meta.webpackHot?.dispose?.($), undefined)
+/// ```
+///
+/// # Arguments
+///
+/// * `span` - Source location for the generated expression
+/// * `ctxt` - Syntax context for the generated identifiers
+/// * `kinds` - Optional list of HMR property names (defaults to KINDS)
+///
+/// # Returns
+///
+/// An arrow function expression that disposes HMR resources
 pub fn disposer(span: Span, ctxt: SyntaxContext, kinds: Option<&[&str]>) -> Expr {
     let kinds = kinds.unwrap_or(KINDS);
     let i = Ident::new(Atom::new("$"), span, ctxt);
@@ -113,12 +175,38 @@ pub fn disposer(span: Span, ctxt: SyntaxContext, kinds: Option<&[&str]>) -> Expr
         )))),
     })
 }
+
+/// Manages imports and global variable references for module transformations.
+///
+/// This struct tracks:
+/// - Which identifiers should be imported from which modules
+/// - Global variable references that need to be resolved
+///
+/// It can then generate the appropriate import statements and variable declarations
+/// with HMR support for hot module replacement scenarios.
 #[derive(Default)]
 pub struct ImportManifest {
+    /// Map from module path to (export name -> local identifier)
     map: BTreeMap<Atom, BTreeMap<Atom, Id>>,
+    /// Map from global property path to local identifier
+    /// e.g., ["console", "log"] -> console$log
     globals: BTreeMap<Vec<Atom>, Id>,
 }
 impl ImportManifest {
+    /// Gets or creates an identifier for a module import.
+    ///
+    /// If this module/name combination hasn't been seen before, creates a new
+    /// unique identifier for it. Returns the same identifier on subsequent calls
+    /// with the same module and name.
+    ///
+    /// # Arguments
+    ///
+    /// * `module` - The module path to import from
+    /// * `name` - The export name to import
+    ///
+    /// # Returns
+    ///
+    /// A unique identifier for this import
     pub fn get(&mut self, module: Atom, name: Atom) -> Id {
         return self
             .map
@@ -128,6 +216,20 @@ impl ImportManifest {
             .or_insert_with(|| (name.clone(), SyntaxContext::empty().apply_mark(Mark::new())))
             .clone();
     }
+    
+    /// Gets or creates an identifier for a global variable access path.
+    ///
+    /// For a path like `["console", "log"]`, creates an identifier that will
+    /// be bound to `globalThis.console.log`. Returns the same identifier on
+    /// subsequent calls with the same path.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The property access path (e.g., `["console", "log"]`)
+    ///
+    /// # Returns
+    ///
+    /// A unique identifier for this global access
     pub fn global(&mut self, x: &[Atom]) -> Id {
         return self
             .globals
@@ -149,6 +251,24 @@ impl ImportManifest {
             })
             .clone();
     }
+    
+    /// Generates import statements and variable declarations for all tracked imports and globals.
+    ///
+    /// This method produces:
+    /// 1. Import statements for each module with all its named imports
+    /// 2. Let declarations to create mutable local bindings for the imports
+    /// 3. HMR accept calls for each imported module (if kinds is not empty)
+    /// 4. Const declarations for global variable accesses
+    ///
+    /// # Arguments
+    ///
+    /// * `span` - Source location for generated code
+    /// * `kinds` - HMR property names to generate accept calls for (defaults to KINDS)
+    ///
+    /// # Returns
+    ///
+    /// An iterator over module items (imports and statements) to be inserted at
+    /// the beginning of the module
     pub fn render(
         &self,
         span: swc_common::Span,
