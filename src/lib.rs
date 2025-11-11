@@ -1,3 +1,57 @@
+//! Utilities for rewriting and transforming JavaScript code.
+//!
+//! `portal-solutions-swibb` provides a collection of AST transformers and utilities
+//! for JavaScript code manipulation using the SWC compiler infrastructure. It's designed
+//! to support tools like Weevy, Jsaw, Jsxx, DumbJS, and other JavaScript processing tools.
+//!
+//! # Features
+//!
+//! - **Conditional folding**: Normalize and simplify ternary expressions
+//! - **Constant collection and inlining**: Track and inline constant values
+//! - **Arrow function inflation**: Convert arrow functions to regular functions
+//! - **With statement transformation**: Remove `with` statements
+//! - **Hot module replacement**: Utilities for HMR in bundlers
+//! - **Scope analysis**: Determine free variables in functions
+//! - **Variable declaration optimization**: Convert `var` to `const` when safe
+//!
+//! # Examples
+//!
+//! ## Basic Constant Folding
+//!
+//! ```rust
+//! use portal_solutions_swibb::CondFolding;
+//! use swc_ecma_visit::VisitMutWith;
+//! # #[cfg(feature = "test")]
+//! # {
+//! use portal_solutions_swibb::test::test_load;
+//! use swc_common::sync::Lrc;
+//! use swc_common::SourceMap;
+//!
+//! let cm = Lrc::new(SourceMap::default());
+//! let mut module = test_load(&cm, "test", "const x = true ? 1 : 2;");
+//! module.visit_mut_with(&mut CondFolding::default());
+//! # }
+//! ```
+//!
+//! ## Collecting Constants
+//!
+//! ```rust
+//! use portal_solutions_swibb::ConstCollector;
+//! use swc_ecma_visit::VisitMutWith;
+//! # #[cfg(feature = "test")]
+//! # {
+//! use portal_solutions_swibb::test::test_load;
+//! use swc_common::sync::Lrc;
+//! use swc_common::SourceMap;
+//!
+//! let cm = Lrc::new(SourceMap::default());
+//! let mut module = test_load(&cm, "test", "const PI = 3.14; const TAU = PI * 2;");
+//! let mut collector = ConstCollector::default();
+//! module.visit_mut_with(&mut collector);
+//! // collector.map now contains the constant values
+//! # }
+//! ```
+
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     mem::{replace, take},
@@ -38,17 +92,46 @@ pub mod wither;
 pub mod test;
 pub use folding::{ArrowCallPack, CondFolding};
 use swc_ecma_visit::{Visit, VisitWith};
+
+/// Converts SWC's `SyntaxContext` to a hierarchical `Mark` structure.
+///
+/// SWC uses `SyntaxContext` to track identifier scopes and hygiene. This struct
+/// provides a way to convert a `SyntaxContext` (which is internally a chain of marks)
+/// into an explicit `Mark` that represents the same scope information.
+///
+/// This is useful when you need to work with marks directly or when building
+/// new AST nodes that should have the same scope as existing nodes.
 pub struct SyntaxContextToMark {
+    /// The root mark representing the empty syntax context
     root: Mark,
+    /// Cache mapping (parent_mark, current_mark) pairs to combined marks
     map: HashMap<(Mark, Mark), Mark>,
 }
 impl SyntaxContextToMark {
+    /// Creates a new converter with the specified root mark.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The mark to use for the empty syntax context
     pub fn new(root: Mark) -> Self {
         Self {
             root,
             map: Default::default(),
         }
     }
+    
+    /// Converts a `SyntaxContext` to its corresponding `Mark`.
+    ///
+    /// This method recursively processes the syntax context chain and returns
+    /// a mark that represents the same scope. Results are cached for efficiency.
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - The syntax context to convert
+    ///
+    /// # Returns
+    ///
+    /// A mark representing the same scope as the input syntax context
     pub fn of(&mut self, mut a: SyntaxContext) -> Mark {
         if a == SyntaxContext::empty() {
             return self.root;
@@ -65,7 +148,18 @@ impl SyntaxContextToMark {
 // pub mod brighten;
 // pub use brighten::*;
 pub use crate::consts::ConstCollector;
+
+/// Trait for determining if an expression is pure (has no side effects).
+///
+/// A pure expression is one that:
+/// - Does not modify any state
+/// - Does not perform I/O
+/// - Always produces the same result given the same inputs
+/// - Can be safely evaluated multiple times or not at all
+///
+/// This extends the `Idempotency` trait, as pure expressions are also idempotent.
 pub trait Purity: Idempotency {
+    /// Returns `true` if the expression is pure (has no side effects).
     fn is_pure(&self) -> bool;
 }
 impl Purity for Expr {
@@ -86,7 +180,17 @@ impl<T: Purity> Purity for Box<T> {
         (&**self).is_pure()
     }
 }
+
+/// Trait for determining if an expression is idempotent.
+///
+/// An idempotent expression is one that can be executed multiple times without
+/// changing the result. This is weaker than purity - an idempotent expression may
+/// have side effects, but repeated evaluation produces the same result.
+///
+/// For example, `x = 5` is idempotent (executing it multiple times leaves x as 5)
+/// but not pure (it has the side effect of assigning to x).
 pub trait Idempotency {
+    /// Returns `true` if the expression is idempotent.
     fn idempotent(&self) -> bool;
 }
 impl<T: Idempotency> Idempotency for Box<T> {
@@ -221,7 +325,15 @@ impl ConstCollector {
         }
     }
 }
+
+/// Removes specific patterns of generated code that are known to be unnecessary.
+///
+/// This visitor identifies and removes certain code patterns that are known artifacts
+/// of code generation or minification that serve no useful purpose. Specifically, it
+/// removes variable declarations that contain calls to `substr(0, 11)` on other
+/// function call results, which are sometimes generated by certain minifiers.
 pub struct Cleanse {}
+
 impl VisitMut for Cleanse {
     fn visit_mut_stmts(&mut self, node: &mut Vec<Stmt>) {
         node.visit_mut_children_with(self);
@@ -269,12 +381,30 @@ impl VisitMut for Cleanse {
         }
     }
 }
+
+/// Renames identifiers to random strings for obfuscation.
+///
+/// This renamer uses a random number generator to create unpredictable identifier
+/// names, making the code harder to understand. It maintains consistency by caching
+/// the mapping from original identifiers to their randomized names.
+///
+/// This is primarily useful for code obfuscation. Each identifier gets a consistent
+/// random name throughout the program.
+///
+/// Requires the `rand` feature to be enabled.
 #[non_exhaustive]
 pub struct Garbler<R> {
+    /// Random number generator for creating random identifier names
     pub rng: Mutex<R>,
+    /// Cache mapping original identifiers to their garbled names
     cache: Mutex<BTreeMap<Id, Atom>>,
 }
 impl<R> Garbler<R> {
+    /// Creates a new garbler with the given random number generator.
+    ///
+    /// # Arguments
+    ///
+    /// * `rng` - A random number generator to use for creating random names
     pub fn new(rng: R) -> Self {
         Self {
             rng: Mutex::new(rng),
@@ -314,9 +444,25 @@ const _: () = {
         type Target = Atom;
     }
 };
+
+/// Renames identifiers by encoding their syntax context.
+///
+/// This renamer converts identifiers to a mangled form that includes their syntax
+/// context information. For identifiers in the empty context that don't start with
+/// `_$`, it keeps the original name. Otherwise, it encodes the identifier as
+/// `_${context}_${name}`.
+///
+/// With the `encoding` feature enabled, very long names (>19 characters) can be
+/// hashed to a shorter form for compactness.
+///
+/// This is useful for:
+/// - Debugging scope/hygiene issues (the context is visible in the name)
+/// - Ensuring unique names across different scopes
+/// - Serializing ASTs with scope information preserved
 #[derive(Default)]
 #[non_exhaustive]
 pub struct ManglingRenamer {
+    /// Whether to hash long names to shorter forms (requires `encoding` feature)
     #[cfg(feature = "encoding")]
     pub encode: bool,
 }
@@ -355,14 +501,42 @@ impl Renamer for ManglingRenamer {
         )
     }
 }
+
+/// Removes all syntax context information from identifiers.
+///
+/// This visitor resets all syntax contexts to the default (empty) context,
+/// effectively removing all scope and hygiene information. This can be useful
+/// after transformations when you want to "flatten" the scope structure.
+///
+/// **Warning**: This removes important scope information and can cause name
+/// collisions if different scopes had identifiers with the same name.
 #[derive(Default)]
 #[non_exhaustive]
 pub struct StripContext {}
+
 impl VisitMut for StripContext {
     fn visit_mut_syntax_context(&mut self, node: &mut swc_common::SyntaxContext) {
         *node = Default::default();
     }
 }
+
+/// Re-resolves a module after transformations by renaming and re-analyzing scopes.
+///
+/// This function performs a three-step process:
+/// 1. Renames all identifiers using the provided mangling renamer
+/// 2. Strips all syntax context information
+/// 3. Re-runs the resolver to rebuild scope information with fresh marks
+///
+/// This is useful after performing transformations that may have invalidated the
+/// scope information, allowing you to rebuild clean scope data.
+///
+/// # Arguments
+///
+/// * `module` - The module to re-resolve (modified in place)
+/// * `mangle` - The renamer to use for mangling identifier names
+/// * `strip` - The context stripper (typically `StripContext::default()`)
+/// * `unresolved_mark` - Mark to use for unresolved references
+/// * `top_level_mark` - Mark to use for top-level scope
 pub fn reresolve(
     module: &mut Module,
     mangle: ManglingRenamer,
