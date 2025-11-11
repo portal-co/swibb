@@ -1,6 +1,20 @@
+//! Transforms arrow functions into regular function expressions.
+//!
+//! Arrow functions in JavaScript have different semantics from regular functions,
+//! particularly regarding `this` binding and the `new.target` meta-property. This
+//! module provides transformers to convert arrow functions into regular functions
+//! while preserving their lexical scope semantics.
+
 use crate::*;
 use swc_ecma_ast::{FnExpr, Function, MetaPropExpr, MetaPropKind, Param, ThisExpr};
+
+/// Helper visitor for transforming `this` and `new.target` inside inflated arrow functions.
+///
+/// When an arrow function is converted to a regular function, references to `this`
+/// and `new.target` inside it need to be converted to identifiers that capture the
+/// lexical values from the outer scope.
 struct InflateInner {
+    /// The syntax context used for the generated identifiers
     ctx: SyntaxContext,
 }
 impl VisitMut for InflateInner {
@@ -16,9 +30,33 @@ impl VisitMut for InflateInner {
         }
     }
 }
+
+/// Transforms arrow functions into regular function expressions.
+///
+/// This visitor converts arrow functions to regular functions while preserving their
+/// lexical binding semantics. Since arrow functions capture `this` and `new.target`
+/// from their enclosing scope, this transformer:
+///
+/// 1. Converts arrow functions to regular functions
+/// 2. Introduces const declarations for `this` and `new.target` that capture the
+///    lexical values
+/// 3. Replaces references to `this` and `new.target` inside the function with
+///    references to these const declarations
+///
+/// For example:
+/// ```javascript
+/// const f = (x) => this.x + x;
+/// ```
+/// Becomes approximately:
+/// ```javascript
+/// const this$0 = this;
+/// const f = function(x) { return this$0.x + x; };
+/// ```
 #[derive(Default)]
 #[non_exhaustive]
 pub struct Inflate {
+    /// Map of identifiers to be declared as const bindings at the beginning
+    /// of the enclosing scope (for capturing `this` and `new.target`)
     pub idents: BTreeMap<Id, Expr>,
 }
 impl VisitMut for Inflate {
