@@ -1,7 +1,37 @@
+//! Transforms JavaScript `with` statements into equivalent code.
+//!
+//! The `with` statement in JavaScript modifies the scope chain, making it difficult
+//! to analyze and optimize code. This module provides a transformer that removes
+//! `with` statements by explicitly checking if identifiers exist in the with-object
+//! and accessing them accordingly.
+
 use crate::*;
 use swc_ecma_ast::{IdentName, Tpl, TplElement};
+
+/// Transforms `with` statements into equivalent conditional expressions.
+///
+/// This visitor removes JavaScript `with` statements by converting free variable
+/// references into conditional expressions that check if the property exists in
+/// the with-object before accessing it.
+///
+/// For example, it transforms:
+/// ```javascript
+/// with (obj) { foo; }
+/// ```
+/// Into:
+/// ```javascript
+/// const $with$0 = obj;
+/// ('foo' in $with$0) ? $with$0.foo : foo;
+/// ```
+///
+/// This makes the code more explicit and easier to analyze, at the cost of verbosity.
 pub struct Wither {
+    /// Stack of with-objects and their locally declared variables
+    /// Each entry contains the identifier for the with-object and a set of
+    /// identifiers declared within that with scope (which shouldn't be looked up
+    /// in the with-object)
     pub with_stack: Vec<(Ident, BTreeSet<Id>)>,
+    /// Prefix used when generating temporary identifiers for with-objects
     pub ident_prefix: Atom,
 }
 impl VisitMut for Wither {
@@ -148,6 +178,26 @@ impl VisitMut for Wither {
         }
     }
 }
+
+/// Recursively collects all identifiers declared in a pattern.
+///
+/// This helper function traverses destructuring patterns and collects all
+/// identifiers that are bound by the pattern. This is used to track which
+/// variables are declared locally within a with-block and therefore should
+/// not be looked up in the with-object.
+///
+/// # Arguments
+///
+/// * `name` - The pattern to analyze
+/// * `x` - A mutable set to add discovered identifiers to
+///
+/// # Pattern Types Handled
+///
+/// - `Ident`: Adds the identifier directly
+/// - `Array`: Recursively processes all elements
+/// - `Object`: Recursively processes all properties
+/// - `Rest`: Recursively processes the rest pattern
+/// - `Assign`: Recursively processes the left-hand side
 fn collect_idents(name: &Pat, x: &mut BTreeSet<Id>) {
     match name {
         Pat::Ident(binding_ident) => {
