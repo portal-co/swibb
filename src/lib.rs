@@ -18,36 +18,38 @@
 //!
 //! ## Basic Constant Folding
 //!
-//! ```rust,no_run
+//! ```rust
 //! use portal_solutions_swibb::CondFolding;
 //! use swc_ecma_visit::VisitMutWith;
 //! # #[cfg(feature = "test")]
 //! # {
-//! use portal_solutions_swibb::test::test_load;
+//! use portal_solutions_swibb::test::{test_load,with_test_globals};
 //! use swc_common::sync::Lrc;
 //! use swc_common::SourceMap;
-//!
-//! let cm = Lrc::new(SourceMap::default());
-//! let mut module = test_load(&cm, "test", "const x = true ? 1 : 2;");
-//! module.visit_mut_with(&mut CondFolding::default());
+//! with_test_globals(||{
+//!     let cm = Lrc::new(SourceMap::default());
+//!     let mut module = test_load(&cm, "test", "const x = true ? 1 : 2;");
+//!     module.visit_mut_with(&mut CondFolding::default());
+//! });
 //! # }
 //! ```
 //!
 //! ## Collecting Constants
 //!
-//! ```rust,no_run
+//! ```rust
 //! use portal_solutions_swibb::ConstCollector;
 //! use swc_ecma_visit::VisitMutWith;
 //! # #[cfg(feature = "test")]
 //! # {
-//! use portal_solutions_swibb::test::test_load;
+//! use portal_solutions_swibb::test::{test_load,with_test_globals};
 //! use swc_common::sync::Lrc;
 //! use swc_common::SourceMap;
-//!
-//! let cm = Lrc::new(SourceMap::default());
-//! let mut module = test_load(&cm, "test", "const PI = 3.14; const TAU = PI * 2;");
-//! let mut collector = ConstCollector::default();
-//! module.visit_mut_with(&mut collector);
+//! with_test_globals(||{
+//!     let cm = Lrc::new(SourceMap::default());
+//!     let mut module = test_load(&cm, "test", "const PI = 3.14; const TAU = PI * 2;");
+//!     let mut collector = ConstCollector::default();
+//!     module.visit_mut_with(&mut collector);
+//! });
 //! // collector.map now contains the constant values
 //! # }
 //! ```

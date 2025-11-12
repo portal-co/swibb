@@ -27,15 +27,15 @@
 //!
 //! The `map_load!` macro simplifies test setup by creating the SourceMap and loading code:
 //!
-//! ```rust,no_run
+//! ```rust
 //! # #[cfg(feature = "test")]
 //! # {
-//! use portal_solutions_swibb::map_load;
+//! use portal_solutions_swibb::{map_load,with_test_globals};
 //!
-//! map_load!("test_name", "const x = 1 + 1;" => |source_map, mut module| {
+//! with_test_globals(||map_load!("test_name", "const x = 1 + 1;" => |source_map, mut module| {
 //!     // Access the source_map and module here
 //!     // Apply transformations and assertions
-//! });
+//! }));
 //! # }
 //! ```
 //!
@@ -81,7 +81,12 @@
 
 use crate::*;
 use sha3::Digest;
+use swc_common::GLOBALS;
 use swc_ecma_ast::Module;
+
+pub fn with_test_globals<T>(func: impl FnOnce() -> T) -> T {
+    return GLOBALS.set(&Default::default(), func);
+}
 
 /// Loads and parses JavaScript code into a SWC AST Module for testing.
 ///
@@ -107,15 +112,16 @@ use swc_ecma_ast::Module;
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust
 /// # #[cfg(feature = "test")]
 /// # {
-/// use portal_solutions_swibb::test::test_load;
+/// use portal_solutions_swibb::test::{test_load,with_test_globals};
 /// use swc_common::sync::Lrc;
 /// use swc_common::SourceMap;
-///
+/// with_test_globals(||{ //The globals need to be initialized here
 /// let cm = Lrc::new(SourceMap::default());
 /// let module = test_load(&cm, "simple_test", "const greeting = 'Hello';");
+/// })
 /// // module is now ready for transformations
 /// # }
 /// ```
@@ -304,7 +310,7 @@ macro_rules! simple_module_test {
     ($name:ident [$data:expr] => |$a:pat_param,$b:pat_param|$e:expr) => {
       #[test]
       fn $name(){
-        $crate::test::map_load!(stringify!($name),$data => |$a,$b|$e);
+        $crate::test::with_test_globals(||$crate::test::map_load!(stringify!($name),$data => |$a,$b|$e));
       }
     };
 }
