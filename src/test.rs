@@ -163,7 +163,8 @@ pub fn test_load(cm: &Lrc<SourceMap>, testname: &str, fm: &str) -> Module {
         })
         .expect("failed to parser module");
     module.visit_mut_with(&mut swc_ecma_transforms_base::resolver(
-        Mark::root(),
+        // Mark::root(),
+        Mark::new(),
         Mark::new(),
         false,
     ));
