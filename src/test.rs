@@ -310,7 +310,7 @@ macro_rules! simple_module_test {
     ($name:ident [$data:expr] => |$a:pat_param,$b:pat_param|$e:expr) => {
       #[test]
       fn $name(){
-        $crate::test::with_test_globals(||$crate::test::map_load!(stringify!($name),$data => |$a,$b|$e));
+        $crate::test::with_test_globals(||$crate::map_load!(stringify!($name),$data => |$a,$b|$e));
       }
     };
 }
