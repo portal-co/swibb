@@ -25,6 +25,7 @@ swc_ecma_parser.workspace = true
 swc_ecma_transforms_base.workspace = true
 swc_ecma_transforms_optimization.workspace = true
 swc_ecma_visit.workspace = true
+impl-trait-for-tuples.workspace = true
 
 [workspace]
 members=["."]
@@ -45,3 +46,5 @@ swc_bundler = "^34.0.0"
 swc_ecma_loader = "^16.0.0"
 swc_ecma_parser = "^26.0.0"
 swc_ecma_codegen = "^19"
+
+impl-trait-for-tuples = "^0.2.3"
