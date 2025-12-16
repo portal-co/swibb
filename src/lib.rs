@@ -88,6 +88,7 @@ pub mod inline;
 pub mod module;
 pub mod scope;
 pub mod wither;
+pub mod patterns;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
