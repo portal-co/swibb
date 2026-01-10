@@ -226,3 +226,12 @@ For bugs, feature requests, or questions:
 ## Acknowledgments
 
 Built with [SWC](https://swc.rs/), an extremely fast JavaScript/TypeScript compiler.
+
+## Goals
+- [ ] Add project goals
+
+## Progress
+- [ ] Initial setup
+
+---
+*AI assisted*
