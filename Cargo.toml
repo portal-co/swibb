@@ -1,9 +1,9 @@
 [package]
 name = "portal-solutions-swibb"
-version = "0.5.0"
+version = "0.6.0-alpha.1"
 edition = "2024"
 license = "MPL-2.0"
-description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, DumbJS, and other JS processing tools"
+description = "Utilities for rewriting JS for Weevy, Jsaw, Jsxx, DumbJS, Dreamcomp, EsCrunch, and other JS processing tools"
 
 
 [features]
@@ -16,7 +16,7 @@ rand = ["dep:rand"]
 
 [dependencies]
 hex = { version = "0.4.3", optional = true }
-rand = { version = "0.9.1", optional = true }
+rand = { version = "0.10.0", optional = true }
 sha3 = { version = "0.10.8", optional = true }
 swc_atoms.workspace = true
 swc_common.workspace = true
@@ -33,20 +33,18 @@ resolver="3"
 
 [workspace.dependencies]
 
-# TODO: Update to newest versions of swc crates, make version `0.6.0-alpha.1`, modularize
-
-swc_atoms = "^8.0.0"
-swc_common = "^16.0.0"
-swc_ecma_ast = "^17.0.0"
-swc_ecma_compat_es2015 = "^32.0.0"
-swc_ecma_minifier = "^35.0.0"
-swc_ecma_transforms_base = "^29.0.0"
-swc_ecma_transforms_optimization = "^31.0.0"
-swc_ecma_utils = "^23.0.0"
-swc_ecma_visit = "^17.0.0"
-swc_bundler = "^34.0.0"
-swc_ecma_loader = "^16.0.0"
-swc_ecma_parser = "^26.0.0"
-swc_ecma_codegen = "^19"
+swc_atoms = "^9.0.0"
+swc_common = "^19.0.0"
+swc_ecma_ast = "^21.0.0"
+swc_ecma_compat_es2015 = "^43.0.0"
+swc_ecma_minifier = "^46.0.0"
+swc_ecma_transforms_base = "^38.0.0"
+swc_ecma_transforms_optimization = "^40.0.0"
+swc_ecma_utils = "^27.0.0"
+swc_ecma_visit = "^21.0.0"
+swc_bundler = "^44.0.0"
+swc_ecma_loader = "^19.0.0"
+swc_ecma_parser = "^35.0.0"
+swc_ecma_codegen = "^24"
 
 impl-trait-for-tuples = "^0.2.3"
