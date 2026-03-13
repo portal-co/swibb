@@ -33,6 +33,8 @@ resolver="3"
 
 [workspace.dependencies]
 
+# TODO: Update to newest versions of swc crates, make version `0.6.0-alpha.1`, modularize
+
 swc_atoms = "^8.0.0"
 swc_common = "^16.0.0"
 swc_ecma_ast = "^17.0.0"
