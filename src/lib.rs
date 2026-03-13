@@ -82,18 +82,15 @@ use swc_ecma_visit::{VisitMut, VisitMutWith};
 // pub mod brighten;
 // pub mod amd;
 pub mod consts;
-pub mod folding;
-pub mod inflate;
-pub mod inline;
+pub mod opt;
 pub mod module;
 pub mod scope;
-pub mod wither;
 pub mod patterns;
 // pub mod member_stuffs;
 // pub mod stupify;
 #[cfg(feature = "test")]
 pub mod test;
-pub use folding::{ArrowCallPack, CondFolding};
+pub use opt::folding::{ArrowCallPack, CondFolding};
 use swc_ecma_visit::{Visit, VisitWith};
 
 /// Converts SWC's `SyntaxContext` to a hierarchical `Mark` structure.
